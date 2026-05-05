@@ -1,0 +1,44 @@
+@media print {
+  /* Hide sidebar, header, and buttons during print */
+  aside,
+  nav,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  /* Make content full width */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Remove shadows and backgrounds for cleaner print */
+  .bg-white,
+  .shadow,
+  .rounded-xl {
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Ensure proper page breaks */
+  .page-break {
+    page-break-after: always;
+  }
+
+  /* Optimize colors for print */
+  body {
+    background: white !important;
+  }
+}
+
+/* Hide scrollbar for tabs */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

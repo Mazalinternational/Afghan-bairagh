@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Testing Tool</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 3px; }
+        .response { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 3px; white-space: pre-wrap; }
+        .token-display { background: #e8f5e8; padding: 10px; margin: 10px 0; border-radius: 3px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Afghan Flag API Testing Tool</h1>
+        
+        <!-- Authentication Section -->
+        <div class="section">
+            <h2>1. Authentication</h2>
+            <input type="text" id="username" placeholder="Username" value="admin">
+            <input type="password" id="password" placeholder="Password" value="password">
+            <button onclick="login()">Login</button>
+            <div id="token-display" class="token-display" style="display:none;">
+                <strong>Token:</strong> <span id="token-value"></span>
+            </div>
+        </div>
+
+        <!-- Customer Operations -->
+        <div class="section">
+            <h2>2. Customer Operations</h2>
+            <button onclick="listCustomers()">List Customers</button>
+            <button onclick="showCreateCustomerForm()">Create Customer</button>
+            
+            <div id="create-customer-form" style="display:none; margin-top:10px;">
+                <h3>Create New Customer</h3>
+                <input type="text" id="customer-name" placeholder="Customer Name" value="John Doe">
+                <input type="text" id="customer-phone" placeholder="Phone" value="1234567890">
+                <input type="text" id="customer-address" placeholder="Address" value="123 Main St">
+                <input type="email" id="customer-email" placeholder="Email" value="john@example.com">
+                <textarea id="customer-notes" placeholder="Notes" rows="2">VIP customer</textarea>
+                <button onclick="createCustomer()">Submit</button>
+            </div>
+        </div>
+
+        <!-- Order Operations -->
+        <div class="section">
+            <h2>3. Order Operations</h2>
+            <button onclick="listOrders()">List Orders</button>
+            <button onclick="getPendingOrders()">Pending Orders</button>
+            <button onclick="getCompletedOrders()">Completed Orders</button>
+        </div>
+
+        <!-- Inventory Operations -->
+        <div class="section">
+            <h2>4. Inventory Operations</h2>
+            <button onclick="listCategories()">List Categories</button>
+            <button onclick="listItems()">List Items</button>
+            <button onclick="getLowStockItems()">Low Stock Items</button>
+        </div>
+
+        <!-- Response Display -->
+        <div class="section">
+            <h2>Response</h2>
+            <div id="response" class="response">Response will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8000/api';
+        let authToken = '';
+
+        function displayResponse(data, status = 'success') {
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerHTML = `Status: ${status}\n\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}${endpoint}`, {
+                    method,
+                    headers,
+                    body: body ? JSON.stringify(body) : null
+                });
+
+                const data = await response.json();
+                displayResponse(data, response.ok ? 'success' : 'error');
+                return data;
+            } catch (error) {
+                displayResponse({error: error.message}, 'error');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch(`${BASE_URL}/auth/login/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.access) {
+                    authToken = data.access;
+                    document.getElementById('token-value').textContent = authToken;
+                    document.getElementById('token-display').style.display = 'block';
+                    displayResponse({message: 'Login successful', token: authToken});
+                } else {
+                    displayResponse(data, 'error');
+                }
+            } catch (error) {
+                displayResponse({error: error.message}, 'error');
+            }
+        }
+
+        function showCreateCustomerForm() {
+            const form = document.getElementById('create-customer-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function createCustomer() {
+            const customerData = {
+                name: document.getElementById('customer-name').value,
+                phone: document.getElementById('customer-phone').value,
+                address: document.getElementById('customer-address').value,
+                email: document.getElementById('customer-email').value,
+                notes: document.getElementById('customer-notes').value
+            };
+            
+            await makeRequest('/customers/', 'POST', customerData);
+        }
+
+        async function listCustomers() {
+            await makeRequest('/customers/');
+        }
+
+        async function listOrders() {
+            await makeRequest('/orders/');
+        }
+
+        async function getPendingOrders() {
+            await makeRequest('/orders/pending/');
+        }
+
+        async function getCompletedOrders() {
+            await makeRequest('/orders/completed/');
+        }
+
+        async function listCategories() {
+            await makeRequest('/inventory/categories/');
+        }
+
+        async function listItems() {
+            await makeRequest('/inventory/items/');
+        }
+
+        async function getLowStockItems() {
+            await makeRequest('/inventory/items/low_stock/');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global base font ~2px larger than typical browser 16px default */
+@layer base {
+  html {
+    font-size: 18px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+
+  /* Match PageHeader actions: primary save/submit (green), cancel/back (red) */
+  .btn-form-green {
+    @apply inline-flex items-center justify-center px-3 py-2 bg-green-500/80 hover:bg-green-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-form-red {
+    @apply inline-flex items-center justify-center px-3 py-2 bg-red-500/80 hover:bg-red-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-4;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  }
+
+  /* Sidebar scrollbar styling */
+  .scrollbar-sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-track {
+    background: #1f2937; /* gray-800 */
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-thumb {
+    background: #4b5563; /* gray-600 */
+    border-radius: 3px;
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* gray-500 */
+  }
+
+  /* Firefox scrollbar */
+  .scrollbar-sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+  }
+
+  /* RTL Support */
+  [dir="rtl"] {
+    direction: rtl;
+  }
+
+  [dir="rtl"] .md\:mr-2 {
+    margin-right: 0;
+    margin-left: 0.5rem;
+  }
+
+  [dir="rtl"] .md\:border-r-4 {
+    border-right: 0;
+    border-left: 4px solid;
+  }
+
+  [dir="rtl"] .text-left {
+    text-align: right;
+  }
+
+  [dir="rtl"] .text-right {
+    text-align: left;
+  }
+
+  [dir="rtl"] .flex-row {
+    flex-direction: row-reverse;
+  }
+
+  [dir="rtl"] .justify-start {
+    justify-content: flex-end;
+  }
+
+  [dir="rtl"] .justify-end {
+    justify-content: flex-start;
+  }
+
+  [dir="rtl"] .pl-10,
+  [dir="rtl"] .pl-7 {
+    padding-left: 0;
+    padding-right: 1.75rem;
+  }
+
+  [dir="rtl"] .pr-2,
+  [dir="rtl"] .pr-2\.5 {
+    padding-right: 0;
+    padding-left: 0.5rem;
+  }
+
+  [dir="rtl"] .border-l-4 {
+    border-left: 0;
+    border-right: 4px solid;
+  }
+}

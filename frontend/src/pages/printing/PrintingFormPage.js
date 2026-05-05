@@ -1,0 +1,234 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
+import api from '../../services/api';
+import { useTranslation } from '../../i18n/fallback';
+import { useToast } from '../../context/ToastContext';
+import { normalizeNumeralString, parseLocaleFloat } from '../../utils/numerals';
+
+const EMPTY_LINE = { flag_name: '', size: '', qty: '', total_meters: '', per_meter_price: '' };
+
+const parseSizeToMetersPerUnit = (sizeValue) => {
+  const raw = String(sizeValue || '').trim();
+  if (!raw) return NaN;
+  const parts = raw.split(/[\sxX*×]+/).map((p) => parseLocaleFloat(p)).filter((n) => !Number.isNaN(n) && n > 0);
+  if (!parts.length) return NaN;
+  if (parts.length >= 2) {
+    const area = parts.reduce((acc, n) => acc * n, 1);
+    // Typical usage is cm x cm (e.g. 150 x 100) and must become m^2.
+    const looksLikeCentimeters = parts.some((n) => n > 10);
+    return looksLikeCentimeters ? area / 10000 : area;
+  }
+  // Single-dimension size: if it looks like centimeters, convert to meters.
+  return parts[0] > 10 ? parts[0] / 100 : parts[0];
+};
+
+const PrintingFormPage = () => {
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { addToast } = useToast();
+  const [suppliers, setSuppliers] = useState([]);
+  const [useNewPrinter, setUseNewPrinter] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    printer: '',
+    new_name: '',
+    new_phone: '',
+    new_address: '',
+    bill_number: '',
+    payment_method: 'cash',
+    payment_amount: '',
+    reference: '',
+    notes: '',
+    lines: [{ ...EMPTY_LINE }],
+  });
+
+  useEffect(() => {
+    fetchSuppliers();
+    if (isEdit) fetchJob();
+  }, [id, isEdit]);
+
+  const fetchSuppliers = async () => {
+    const res = await api.get('/api/printing-printers/');
+    setSuppliers(Array.isArray(res.data) ? res.data : res.data.results || []);
+  };
+
+  const fetchJob = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/printing-jobs/${id}/`);
+      const job = res.data;
+      setFormData({
+        printer: String(job.printer || ''),
+        new_name: '',
+        new_phone: '',
+        new_address: '',
+        bill_number: job.bill_number || '',
+        payment_method: 'cash',
+        payment_amount: '',
+        reference: '',
+        notes: job.notes || '',
+        lines: (job.items || []).map((it) => ({
+          flag_name: it.flag_name || '',
+          size: it.size || '',
+          qty: String(it.qty || ''),
+          total_meters: String(it.total_meters || ''),
+          per_meter_price: String(it.per_meter_price || ''),
+        })),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addLine = () => setFormData((p) => ({ ...p, lines: [...p.lines, { ...EMPTY_LINE }] }));
+  const removeLine = (idx) => setFormData((p) => ({ ...p, lines: p.lines.filter((_, i) => i !== idx).length ? p.lines.filter((_, i) => i !== idx) : [{ ...EMPTY_LINE }] }));
+  const updateLine = (idx, key, value) => setFormData((p) => {
+    const next = [...p.lines];
+    const current = { ...next[idx], [key]: value };
+    if (key === 'size' || key === 'qty') {
+      const qty = parseLocaleFloat(current.qty);
+      const metersPerUnit = parseSizeToMetersPerUnit(current.size);
+      if (!Number.isNaN(qty) && !Number.isNaN(metersPerUnit)) {
+        current.total_meters = (qty * metersPerUnit).toFixed(2);
+      } else if (!current.total_meters || key === 'qty') {
+        current.total_meters = '';
+      }
+    }
+    next[idx] = current;
+    return { ...p, lines: next };
+  });
+
+  const calcLineTotal = (line) => {
+    const meters = parseLocaleFloat(line.total_meters);
+    const perMeter = parseLocaleFloat(line.per_meter_price);
+    return (Number.isNaN(meters) ? 0 : meters) * (Number.isNaN(perMeter) ? 0 : perMeter);
+  };
+  const totalCost = useMemo(() => formData.lines.reduce((sum, line) => sum + calcLineTotal(line), 0), [formData.lines]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      let printerId = formData.printer;
+      if (useNewPrinter) {
+        const created = await api.post('/api/printing-printers/', {
+          name: formData.new_name.trim(),
+          phone: formData.new_phone.trim(),
+          address: formData.new_address.trim(),
+        });
+        printerId = created.data.id;
+      }
+
+      const payload = {
+        printer: parseInt(printerId, 10),
+        bill_number: formData.bill_number,
+        job_title: formData.lines.length === 1 ? formData.lines[0].flag_name : `${t('printing.jobTitle')} (${formData.lines.length})`,
+        notes: formData.notes,
+        items: formData.lines.map((line) => ({
+          flag_name: line.flag_name,
+          size: line.size,
+          qty: String(parseLocaleFloat(line.qty) || 0),
+          total_meters: String(parseLocaleFloat(line.total_meters) || 0),
+          per_meter_price: String(parseLocaleFloat(line.per_meter_price) || 0),
+          line_total: String(calcLineTotal(line).toFixed(2)),
+        })),
+      };
+
+      if (isEdit) {
+        await api.put(`/api/printing-jobs/${id}/`, payload);
+      } else {
+        const createdJob = await api.post('/api/printing-jobs/', payload);
+        if (formData.payment_method === 'cash') {
+          await api.post('/api/printing-payments/', {
+            job: createdJob.data.id,
+            amount: totalCost,
+            payment_method: 'cash',
+            reference: formData.reference,
+          });
+        } else if (formData.payment_method === 'partial' && (parseLocaleFloat(formData.payment_amount) || 0) > 0) {
+          await api.post('/api/printing-payments/', {
+            job: createdJob.data.id,
+            amount: parseLocaleFloat(formData.payment_amount),
+            payment_method: 'partial',
+            reference: formData.reference,
+          });
+        }
+      }
+      addToast(t('common.save') || 'Saved', 'success');
+      navigate('/printing');
+    } catch (err) {
+      console.error(err);
+      addToast(t('printing.failedSave'), 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100 dark:from-gray-900 dark:via-blue-900 dark:to-gray-900 p-2">
+      <div className="mx-2 bg-white dark:bg-gray-800 rounded-xl p-3 shadow space-y-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-sm font-semibold">{isEdit ? t('common.edit') : t('printing.createRecord')}</h1>
+          <button onClick={() => navigate('/printing')} className="btn-form-red text-xs flex items-center gap-1"><ArrowLeftIcon className="h-4 w-4" />{t('common.back')}</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button type="button" className={`${!useNewPrinter ? 'btn-form-green' : 'btn-form-red'} text-xs`} onClick={() => setUseNewPrinter(false)}>{t('printing.selectPrinter')}</button>
+            <button type="button" className={`${useNewPrinter ? 'btn-form-green' : 'btn-form-red'} text-xs`} onClick={() => setUseNewPrinter(true)}>{t('printing.newPrinter')}</button>
+          </div>
+
+          {!useNewPrinter ? (
+            <select value={formData.printer} onChange={(e) => setFormData((p) => ({ ...p, printer: e.target.value }))} className="w-full max-w-md px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">{t('printing.selectPrinter')}</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name} - {s.phone || '-'}</option>)}
+            </select>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <input value={formData.new_name} onChange={(e) => setFormData((p) => ({ ...p, new_name: e.target.value }))} placeholder={t('printing.printerName')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" required />
+              <input value={formData.new_phone} onChange={(e) => setFormData((p) => ({ ...p, new_phone: e.target.value }))} placeholder={t('printing.printerPhone')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+              <input value={formData.new_address} onChange={(e) => setFormData((p) => ({ ...p, new_address: e.target.value }))} placeholder={t('printing.printerAddress')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {formData.lines.map((line, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-7 gap-2 border border-gray-200 dark:border-gray-700 p-2 rounded-lg">
+                <input value={line.flag_name} onChange={(e) => updateLine(idx, 'flag_name', e.target.value)} placeholder={t('printing.flagName')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+                <input value={line.size} onChange={(e) => updateLine(idx, 'size', e.target.value)} placeholder={t('printing.size')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+                <input value={line.qty} onChange={(e) => updateLine(idx, 'qty', normalizeNumeralString(e.target.value))} placeholder={t('printing.qty')} type="text" inputMode="decimal" className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+                      <input value={line.total_meters} readOnly placeholder={t('printing.totalMeters')} type="text" inputMode="decimal" className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white" />
+                <input value={line.per_meter_price} onChange={(e) => updateLine(idx, 'per_meter_price', normalizeNumeralString(e.target.value))} placeholder={t('printing.perMeterPrice')} type="text" inputMode="decimal" className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+                <input value={calcLineTotal(line).toFixed(2)} readOnly className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-white" />
+                <button type="button" onClick={() => removeLine(idx)} className="btn-form-red text-xs">{t('common.delete')}</button>
+              </div>
+            ))}
+            <button type="button" onClick={addLine} className="btn-form-green text-xs flex items-center gap-1"><PlusIcon className="h-3.5 w-3.5" />{t('printing.addLine')}</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <input value={formData.bill_number} onChange={(e) => setFormData((p) => ({ ...p, bill_number: e.target.value }))} placeholder={t('printing.billNumber')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+            <select value={formData.payment_method} onChange={(e) => setFormData((p) => ({ ...p, payment_method: e.target.value }))} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+              <option value="cash">{t('printing.cash')}</option>
+              <option value="partial">{t('printing.partial')}</option>
+              <option value="credit">{t('printing.credit')}</option>
+            </select>
+            {!isEdit && formData.payment_method === 'partial' && (
+              <input value={formData.payment_amount} onChange={(e) => setFormData((p) => ({ ...p, payment_amount: normalizeNumeralString(e.target.value) }))} type="text" inputMode="decimal" placeholder={t('printing.paymentAmount')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+            )}
+            <input value={formData.reference} onChange={(e) => setFormData((p) => ({ ...p, reference: e.target.value }))} placeholder={t('printing.reference')} className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" />
+          </div>
+
+          <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">{t('printing.totalPrice')}: AFN {totalCost.toFixed(2)}</div>
+          <button disabled={loading} className="btn-form-green text-xs">{loading ? t('common.saving') : t('common.save')}</button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default PrintingFormPage;
+

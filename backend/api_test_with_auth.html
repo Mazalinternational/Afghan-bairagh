@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test with JWT Auth</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        input, button { padding: 8px; margin: 5px; }
+        textarea { width: 100%; height: 200px; font-family: monospace; }
+        .token-display { background: #f0f0f0; padding: 10px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Afghan Flag API Test</h1>
+        
+        <div class="section">
+            <h3>1. Login</h3>
+            <input type="text" id="username" placeholder="Username" value="admin">
+            <input type="password" id="password" placeholder="Password" value="admin123">
+            <button onclick="login()">Login</button>
+            <div id="tokenDisplay" class="token-display" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>2. Test API Endpoints</h3>
+            <button onclick="testCustomers()">Get Customers</button>
+            <button onclick="testOrders()">Get Orders</button>
+            <button onclick="testInventory()">Get Inventory</button>
+            <button onclick="testDashboard()">Get Dashboard</button>
+        </div>
+
+        <div class="section">
+            <h3>Response</h3>
+            <textarea id="response" readonly></textarea>
+        </div>
+    </div>
+
+    <script>
+        let accessToken = '';
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/token/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    accessToken = data.access;
+                    document.getElementById('tokenDisplay').style.display = 'block';
+                    document.getElementById('tokenDisplay').innerHTML = `
+                        <strong>Login Successful!</strong><br>
+                        Access Token: ${data.access.substring(0, 50)}...<br>
+                        Refresh Token: ${data.refresh.substring(0, 50)}...
+                    `;
+                    document.getElementById('response').value = JSON.stringify(data, null, 2);
+                } else {
+                    document.getElementById('response').value = 'Login failed: ' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('response').value = 'Error: ' + error.message;
+            }
+        }
+
+        async function makeAuthenticatedRequest(url) {
+            if (!accessToken) {
+                document.getElementById('response').value = 'Please login first!';
+                return;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                document.getElementById('response').value = JSON.stringify(data, null, 2);
+                
+                if (!response.ok) {
+                    document.getElementById('response').value = `Error ${response.status}: ` + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                document.getElementById('response').value = 'Error: ' + error.message;
+            }
+        }
+
+        function testCustomers() {
+            makeAuthenticatedRequest('http://localhost:8000/api/customers/');
+        }
+
+        function testOrders() {
+            makeAuthenticatedRequest('http://localhost:8000/api/orders/');
+        }
+
+        function testInventory() {
+            makeAuthenticatedRequest('http://localhost:8000/api/inventory/items/');
+        }
+
+        function testDashboard() {
+            makeAuthenticatedRequest('http://localhost:8000/api/dashboard/admin-dashboard/');
+        }
+    </script>
+</body>
+</html>

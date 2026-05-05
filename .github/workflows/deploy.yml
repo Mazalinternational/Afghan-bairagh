@@ -1,0 +1,25 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy Backend
+      run: |
+        echo "Add your backend deployment commands here"
+        # Example: ssh to server and pull latest code
+        # ssh user@server 'cd /path/to/app && git pull && systemctl restart app'
+    
+    - name: Deploy Frontend
+      run: |
+        echo "Add your frontend deployment commands here"
+        # Example: build and upload to hosting service
+        # npm run build && aws s3 sync build/ s3://your-bucket
