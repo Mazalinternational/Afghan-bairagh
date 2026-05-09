@@ -31,6 +31,13 @@ class Customer(models.Model):
         blank=True,
         help_text="Reference number for previous balance"
     )
+    manual_serial_no = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text="Manual customer serial / ledger number",
+    )
     registration_date = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

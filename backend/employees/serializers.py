@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from datetime import timedelta
+from django.db import transaction
+from django.utils import timezone
 from .models import Employee, Advance, SalaryPayment, Loan, Tip, SalaryDepositEntry
 
 
@@ -81,8 +83,13 @@ class SalaryPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalaryPayment
         fields = '__all__'
-        read_only_fields = ['advance_deducted', 'net_paid', 'payment_date']
-    
+        read_only_fields = ['advance_deducted', 'net_paid']
+
+    def create(self, validated_data):
+        if not validated_data.get('payment_date'):
+            validated_data['payment_date'] = timezone.localdate()
+        return super().create(validated_data)
+
     def get_month_display(self, obj):
         # For weekly payments, show week range; for monthly, show month/year
         if getattr(obj, 'period_type', 'monthly') == 'weekly':
@@ -91,10 +98,22 @@ class SalaryPaymentSerializer(serializers.ModelSerializer):
           return f"Week {start.strftime('%d %b %Y')} - {end.strftime('%d %b %Y')}"
         return obj.month.strftime('%B %Y')
     
+    @transaction.atomic
     def update(self, instance, validated_data):
+        old_payment_date = instance.payment_date
+        new_payment_date = validated_data.get('payment_date', old_payment_date)
+
+        if new_payment_date != old_payment_date and instance.advance_deducted > 0:
+            Advance.objects.filter(
+                employee_id=instance.employee_id,
+                deduction_date=old_payment_date,
+                is_deducted=True,
+            ).update(deduction_date=new_payment_date)
+
         if 'base_salary' in validated_data:
             instance.base_salary = validated_data['base_salary']
             instance.net_paid = instance.base_salary - instance.advance_deducted
+
         return super().update(instance, validated_data)
 
 

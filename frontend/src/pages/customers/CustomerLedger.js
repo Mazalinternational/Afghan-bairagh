@@ -599,6 +599,11 @@ const CustomerLedger = () => {
             <div>
               <h1 className="text-lg font-bold text-gray-900 dark:text-white">{customer.name}</h1>
               <p className="text-xs text-gray-600 dark:text-gray-400">{customer.phone}</p>
+              {(customer.manual_serial_no || '').trim() !== '' && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                  {t('customers.manualSerialNo')}: <span className="font-medium dark:text-gray-300">{customer.manual_serial_no}</span>
+                </p>
+              )}
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">

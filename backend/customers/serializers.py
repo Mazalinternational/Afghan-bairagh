@@ -16,6 +16,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'manual_serial_no',
             'phone',
             'phone_secondary',
             'address',
@@ -74,6 +75,11 @@ class CustomerSerializer(serializers.ModelSerializer):
         other_due = self._get_order_and_sales_due(obj)
         return other_due > 0
 
+    def validate_manual_serial_no(self, value):
+        if value is None:
+            return ''
+        return (value or '').strip()
+
     def validate_phone(self, value):
         if Customer.objects.filter(phone=value).exclude(pk=self.instance.pk if self.instance else None).exists():
             raise serializers.ValidationError("Customer with this phone number already exists.")
@@ -120,7 +126,22 @@ class CustomerSerializer(serializers.ModelSerializer):
 class CustomerCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['name', 'phone', 'phone_secondary', 'address', 'email', 'notes', 'previous_balance', 'previous_balance_reference']
+        fields = [
+            'name',
+            'manual_serial_no',
+            'phone',
+            'phone_secondary',
+            'address',
+            'email',
+            'notes',
+            'previous_balance',
+            'previous_balance_reference',
+        ]
+
+    def validate_manual_serial_no(self, value):
+        if value is None:
+            return ''
+        return (value or '').strip()
 
 
 class CustomerBalancePaymentSerializer(serializers.ModelSerializer):

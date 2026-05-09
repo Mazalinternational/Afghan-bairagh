@@ -22,7 +22,7 @@ class SalaryPaymentAdmin(admin.ModelAdmin):
     list_display = ['employee', 'month', 'base_salary', 'advance_deducted', 'net_paid', 'payment_date', 'notes']
     list_filter = ['month', 'payment_date']
     search_fields = ['employee__name', 'employee__nid']
-    readonly_fields = ['advance_deducted', 'net_paid', 'payment_date']
+    readonly_fields = ['advance_deducted', 'net_paid']
     list_editable = ['base_salary']
 
     def save_model(self, request, obj, form, change):

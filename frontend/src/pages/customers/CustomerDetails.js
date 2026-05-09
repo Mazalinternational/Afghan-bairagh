@@ -12,10 +12,12 @@ import {
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import { formatDate } from '../../i18n/dateUtils';
+import { useTranslation } from '../../i18n/fallback';
 
 const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payAmount, setPayAmount] = useState('');
@@ -181,6 +183,7 @@ const CustomerDetails = () => {
             <thead className="bg-gray-800 dark:bg-gray-700">
               <tr>
                 <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-white uppercase tracking-wider">Name</th>
+                <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-white uppercase tracking-wider">{t('customers.manualSerialNo')}</th>
                 <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-white uppercase tracking-wider">Phone</th>
                 <th className="px-3 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-white uppercase tracking-wider">Email</th>
                 <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-white uppercase tracking-wider">Date</th>
@@ -191,6 +194,7 @@ const CustomerDetails = () => {
             <tbody className="bg-white dark:bg-gray-800">
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td className="px-3 sm:px-4 py-2 sm:py-4 text-[10px] sm:text-xs md:text-sm text-gray-900 dark:text-white">{customer.name}</td>
+                <td className="px-3 sm:px-4 py-2 sm:py-4 text-[10px] sm:text-xs md:text-sm text-gray-900 dark:text-white">{customer.manual_serial_no || '—'}</td>
                 <td className="px-3 sm:px-4 py-2 sm:py-4 text-[10px] sm:text-xs md:text-sm text-gray-900 dark:text-white">{customer.phone}</td>
                 <td className="px-3 sm:px-4 py-2 sm:py-4 text-[10px] sm:text-xs md:text-sm text-gray-900 dark:text-white">{customer.email || '-'}</td>
                 <td className="px-2 sm:px-3 py-2 sm:py-4 text-[10px] sm:text-xs md:text-sm text-gray-900 dark:text-white">
@@ -213,6 +217,16 @@ const CustomerDetails = () => {
                   <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase">Name</span>
                 </div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">{customer.name}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <DocumentTextIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase">{t('customers.manualSerialNo')}</span>
+                </div>
+                <p className="text-sm text-gray-900 dark:text-white">{customer.manual_serial_no || '—'}</p>
               </div>
             </div>
 

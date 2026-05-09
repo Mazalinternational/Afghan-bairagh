@@ -60,10 +60,12 @@ const CustomersList = () => {
     
     // Apply search filter
     if (searchQuery.trim()) {
-      filteredCustomers = allCustomers.filter(customer => 
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        customer.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        (customer.phone_secondary || '').toLowerCase().includes(searchQuery.toLowerCase())
+      const q = searchQuery.toLowerCase();
+      filteredCustomers = allCustomers.filter(customer =>
+        customer.name.toLowerCase().includes(q) ||
+        customer.phone.toLowerCase().includes(q) ||
+        (customer.phone_secondary || '').toLowerCase().includes(q) ||
+        (customer.manual_serial_no || '').toLowerCase().includes(q)
       );
     }
     
@@ -76,11 +78,15 @@ const CustomersList = () => {
   };
 
   const totalItems = searchQuery.trim() 
-    ? allCustomers.filter(customer => 
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (customer.phone_secondary || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ).length
+    ? (() => {
+        const q = searchQuery.toLowerCase();
+        return allCustomers.filter(customer =>
+          customer.name.toLowerCase().includes(q) ||
+          customer.phone.toLowerCase().includes(q) ||
+          (customer.phone_secondary || '').toLowerCase().includes(q) ||
+          (customer.manual_serial_no || '').toLowerCase().includes(q)
+        ).length;
+      })()
     : allCustomers.length;
 
   const handleSearch = (query) => {
@@ -208,7 +214,7 @@ const CustomersList = () => {
             <MagnifyingGlassIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 absolute left-2 top-2 sm:top-2.5 text-gray-400" />
             <input
               type="text"
-              placeholder={t('customers.searchPlaceholder')}
+              placeholder={t('customers.searchPlaceholderSerial')}
               onChange={handleSearchChange}
               className="w-full pl-8 sm:pl-9 pr-2 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -239,10 +245,11 @@ const CustomersList = () => {
           <>
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto -mx-2 sm:mx-0">
-              <table className="w-full text-[10px] sm:text-xs min-w-[600px]">
+              <table className="w-full text-[10px] sm:text-xs min-w-[680px]">
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium uppercase tracking-wider text-[10px] sm:text-xs text-white">{t('customers.name')}</th>
+                    <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium uppercase tracking-wider text-[10px] sm:text-xs text-white">{t('customers.manualSerialNo')}</th>
                     <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium uppercase tracking-wider text-[10px] sm:text-xs text-white">{t('customers.phone')}</th>
                     <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium uppercase tracking-wider text-[10px] sm:text-xs text-white">{t('customers.address')}</th>
                     <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-medium uppercase tracking-wider text-[10px] sm:text-xs text-white">{t('customers.email')}</th>
@@ -262,6 +269,9 @@ const CustomersList = () => {
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                        {customer.manual_serial_no || '—'}
                       </td>
                       <td className="px-2 sm:px-3 py-1.5 sm:py-2 whitespace-nowrap text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                         {customer.phone}
@@ -328,6 +338,11 @@ const CustomersList = () => {
                         </span>
                       )}
                     </div>
+                      {(customer.manual_serial_no || '').trim() !== '' && (
+                        <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-300">
+                          {t('customers.manualSerialNo')}: <span className="font-medium">{customer.manual_serial_no}</span>
+                        </p>
+                      )}
                       <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                         {customer.phone}
                         {customer.phone_secondary ? ` / ${customer.phone_secondary}` : ''}
@@ -460,6 +475,12 @@ const CustomersList = () => {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(selectedCustomer.manual_serial_no || '').trim() !== '' && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('customers.manualSerialNo')}</label>
+                    <p className="text-sm text-gray-900 dark:text-white mt-1">{selectedCustomer.manual_serial_no}</p>
+                  </div>
+                )}
                 <div>
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('customers.phone')}</label>
                   <p className="text-sm text-gray-900 dark:text-white mt-1">

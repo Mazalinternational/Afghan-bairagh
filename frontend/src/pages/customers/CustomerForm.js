@@ -8,7 +8,8 @@ import {
   MapPinIcon,
   EnvelopeIcon,
   DocumentTextIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  HashtagIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
@@ -21,6 +22,7 @@ const CustomerForm = () => {
 
   const [formData, setFormData] = useState({
     name: '',
+    manual_serial_no: '',
     phone: '',
     phone_secondary: '',
     address: '',
@@ -42,6 +44,7 @@ const CustomerForm = () => {
       const res = await api.get(`/api/customers/${id}/`);
       setFormData({
         name: res.data.name || '',
+        manual_serial_no: res.data.manual_serial_no || '',
         phone: res.data.phone || '',
         phone_secondary: res.data.phone_secondary || '',
         address: res.data.address || '',
@@ -145,7 +148,7 @@ const CustomerForm = () => {
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/20">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name, Phone and Email Row */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div className="max-w-md">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                 <UserIcon className="h-3.5 w-3.5 inline mr-1" />
@@ -167,6 +170,21 @@ const CustomerForm = () => {
                   {errors.name}
                 </p>
               )}
+            </div>
+
+            <div className="max-w-md">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <HashtagIcon className="h-3.5 w-3.5 inline mr-1" />
+                {t('customers.manualSerialNo')}
+              </label>
+              <input
+                type="text"
+                name="manual_serial_no"
+                value={formData.manual_serial_no}
+                onChange={handleChange}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700/50 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm transition-all"
+                placeholder={t('customers.manualSerialNoPlaceholder')}
+              />
             </div>
 
             <div className="max-w-md">

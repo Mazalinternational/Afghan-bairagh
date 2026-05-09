@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from decimal import Decimal
@@ -133,7 +134,11 @@ class SalaryPayment(models.Model):
     base_salary = models.DecimalField(max_digits=10, decimal_places=2)
     advance_deducted = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     net_paid = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateField(auto_now_add=True)
+    payment_date = models.DateField(
+        db_index=True,
+        default=timezone.localdate,
+        help_text='Calendar date this salary was paid (week/month settlement date)',
+    )
     notes = models.TextField(blank=True)
 
     PERIOD_TYPE_CHOICES = [

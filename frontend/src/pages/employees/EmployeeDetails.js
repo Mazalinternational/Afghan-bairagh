@@ -23,6 +23,7 @@ import { useTranslation } from '../../i18n/fallback';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import PageHeader from '../../components/common/PageHeader';
 import LocalizedDateInput from '../../components/common/LocalizedDateInput';
+import { formatDate } from '../../i18n/dateUtils';
 // Import jspdf and autotable here to ensure plugin is loaded
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -58,7 +59,7 @@ const EmployeeDetails = () => {
   const [editingLoan, setEditingLoan] = useState(null);
   const [editingSalary, setEditingSalary] = useState(null);
   const [showEditSalaryModal, setShowEditSalaryModal] = useState(false);
-  const [editSalaryData, setEditSalaryData] = useState({ base_salary: '' });
+  const [editSalaryData, setEditSalaryData] = useState({ base_salary: '', payment_date: '' });
   const [deletingItem, setDeletingItem] = useState(null);
   const [deleteSalaryDialog, setDeleteSalaryDialog] = useState(null);
   const [deleteSalaryNote, setDeleteSalaryNote] = useState('');
@@ -90,6 +91,7 @@ const EmployeeDetails = () => {
     notes: '',
     period_type: 'monthly', // 'monthly' or 'weekly'
     week_start: new Date().toISOString().slice(0, 10),
+    weekly_payment_date: new Date().toISOString().slice(0, 10),
   });
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [payAllMonths, setPayAllMonths] = useState(false);
@@ -437,6 +439,7 @@ const EmployeeDetails = () => {
           base_salary: base,
           notes: salaryData.notes || t('employees.weeklySalaryNotesDefault'),
           period_type: 'weekly',
+          payment_date: salaryData.weekly_payment_date || undefined,
         });
         addToast(t('employees.toast.weeklySalaryRecorded'), 'success');
       } else {
@@ -481,6 +484,7 @@ const EmployeeDetails = () => {
         notes: '',
         period_type: 'monthly',
         week_start: new Date().toISOString().slice(0, 10),
+        weekly_payment_date: new Date().toISOString().slice(0, 10),
       });
       setSelectedMonths([]);
       setPayAllMonths(false);
@@ -508,9 +512,14 @@ const EmployeeDetails = () => {
       addToast(t('employees.toast.invalidSalaryAmount'), 'error');
       return;
     }
+    if (!editSalaryData.payment_date?.trim()) {
+      addToast(t('employees.toast.salaryPaymentDateRequired'), 'error');
+      return;
+    }
     try {
       await api.patch(`/api/salary-payments/${editingSalary.id}/`, {
-        base_salary: parseFloat(editSalaryData.base_salary)
+        base_salary: parseFloat(editSalaryData.base_salary),
+        payment_date: editSalaryData.payment_date.trim(),
       });
       addToast(t('employees.toast.salaryUpdated'), 'success');
       setShowEditSalaryModal(false);
@@ -728,7 +737,7 @@ const EmployeeDetails = () => {
               (parseFloat(payment.base_salary) || 0).toFixed(2),
               (parseFloat(payment.advance_deducted) || 0).toFixed(2),
               (parseFloat(payment.net_paid) || 0).toFixed(2),
-              payment.payment_date ? new Date(payment.payment_date).toLocaleDateString(dateLocale) : 'N/A'
+              payment.payment_date ? formatDate(payment.payment_date) : 'N/A'
             ]),
             theme: 'striped',
             headStyles: { fillColor: [34, 197, 94], textColor: [255, 255, 255] },
@@ -1315,6 +1324,7 @@ const EmployeeDetails = () => {
                       notes: '',
                       period_type: 'monthly',
                       week_start: new Date().toISOString().slice(0, 10),
+                      weekly_payment_date: new Date().toISOString().slice(0, 10),
                     });
                     setSelectedMonths([]);
                     setPayAllMonths(false);
@@ -1361,19 +1371,18 @@ const EmployeeDetails = () => {
                             {formatAFN(payment.net_paid)}
                           </td>
                           <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-900 dark:text-white">
-                            <div>
-                              <div>{new Date(payment.payment_date).toLocaleDateString(dateLocale)}</div>
-                              {i18n.language === 'prs' ? null : (
-                              <div className="text-[9px] text-gray-500 dark:text-gray-400">
-                                {new Date(payment.payment_date).toLocaleDateString(dateLocale)}
+                            <div>{formatDate(payment.payment_date)}</div>
+                            {(i18n.language === 'prs' || i18n.language === 'ps') && payment.payment_date && (
+                              <div className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                {t('employees.paymentDateGregorianHint')}:{' '}
+                                {new Date(`${payment.payment_date}T12:00:00`).toLocaleDateString('en-CA')}
                               </div>
-                              )}
-                            </div>
+                            )}
                           </td>
                           <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-900 dark:text-white">{payment.notes || '-'}</td>
                           <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs">
                             <div className="flex gap-1">
-                              <button onClick={() => { setEditingSalary(payment); setEditSalaryData({ base_salary: payment.base_salary }); setShowEditSalaryModal(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title={t('employees.editPaymentTitle')}><PencilIcon className="h-4 w-4" /></button>
+                              <button onClick={() => { setEditingSalary(payment); setEditSalaryData({ base_salary: payment.base_salary, payment_date: (payment.payment_date || '').toString().slice(0, 10) }); setShowEditSalaryModal(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title={t('employees.editPaymentTitle')}><PencilIcon className="h-4 w-4" /></button>
                               <button
                                 onClick={() => {
                                   setDeleteSalaryDialog(payment);
@@ -1863,6 +1872,22 @@ const EmployeeDetails = () => {
                       required
                     />
                   </div>
+                  <div className="mb-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('employees.weeklyPaidDateLabel')}
+                    </label>
+                    <LocalizedDateInput
+                      value={salaryData.weekly_payment_date}
+                      onChange={(dateValue) =>
+                        setSalaryData(prev => ({ ...prev, weekly_payment_date: dateValue }))
+                      }
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                      {t('employees.weeklyPaidDateHelp')}
+                    </p>
+                  </div>
                 </>
               )}
 
@@ -2348,11 +2373,33 @@ const EmployeeDetails = () => {
       {/* Edit Salary Payment Modal */}
       {showEditSalaryModal && editingSalary && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">{t('employees.editSalaryPayment')}</h3>
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{t('employees.editSalaryPayment')}</h3>
             <form onSubmit={handleEditSalary} className="space-y-4">
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">{t('employees.baseSalary')}</label><input type="number" step="0.01" value={editSalaryData.base_salary} onChange={(e) => setEditSalaryData({...editSalaryData, base_salary: e.target.value})} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required /></div>
-              <div className="flex gap-3 pt-2"><button type="submit" className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-sm">{t('employees.updatePayment')}</button><button type="button" onClick={() => { setShowEditSalaryModal(false); setEditingSalary(null); }} className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 text-sm">{t('common.cancel')}</button></div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('employees.paymentDate')} *</label>
+                <LocalizedDateInput
+                  value={editSalaryData.payment_date}
+                  onChange={(dateValue) => setEditSalaryData((prev) => ({ ...prev, payment_date: dateValue || '' }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('employees.baseSalary')}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editSalaryData.base_salary}
+                  onChange={(e) => setEditSalaryData({ ...editSalaryData, base_salary: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="submit" className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-sm">{t('employees.updatePayment')}</button>
+                <button type="button" onClick={() => { setShowEditSalaryModal(false); setEditingSalary(null); }} className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 py-2 px-4 rounded hover:bg-gray-400 dark:hover:bg-gray-500 text-sm">{t('common.cancel')}</button>
+              </div>
             </form>
           </div>
         </div>

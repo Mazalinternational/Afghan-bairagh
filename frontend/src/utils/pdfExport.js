@@ -53,8 +53,13 @@ export const exportCustomerToPDF = (customer, orders, payments) => {
 
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
+    const serialRow =
+      (customer.manual_serial_no || '').trim() !== ''
+        ? [[`Serial No.:`, customer.manual_serial_no]]
+        : [];
     const customerInfo = [
       [`Name:`, customer.name || 'N/A'],
+      ...serialRow,
       [`Phone:`, customer.phone || 'N/A'],
       [`Email:`, customer.email || 'N/A'],
       [`Address:`, customer.address || 'N/A'],
