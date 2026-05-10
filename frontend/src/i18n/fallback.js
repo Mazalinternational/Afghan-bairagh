@@ -268,7 +268,36 @@ const translations = {
       saveSettings: "Save Settings",
       settingsSaved: "Settings saved successfully",
       failedToSave: "Failed to save settings",
-      failedToLoad: "Failed to load settings"
+      failedToLoad: "Failed to load settings",
+      backupSection: "Data backup",
+      backupIntro:
+        "Export all database tables to Excel (one sheet per model, including m2m_* columns for many-to-many links and file paths for uploads) or a full SQLite SQL text dump. The ZIP option also includes your media/uploads folder. Automatic backups use your selections below and are stored on the server.",
+      backupAutomatic: "Enable automatic backups",
+      backupFrequency: "Automatic backup interval",
+      backupDaily: "Daily",
+      backupWeekly: "Weekly",
+      backupMonthly: "Monthly (approx. 30 days)",
+      backupYearly: "Yearly (approx. 365 days)",
+      backupIncludeExcel: "Include Excel in automatic backups",
+      backupIncludeSql: "Include SQL in automatic backups",
+      backupLastAuto: "Last automatic backup",
+      backupManualHint:
+        "Manual download runs immediately in your browser (does not depend on the schedule above).",
+      backupExcel: "Download Excel",
+      backupSql: "Download SQL",
+      backupBoth: "Download both (ZIP)",
+      backupDownloadStarted: "Backup download started",
+      backupDownloadFailed: "Backup download failed",
+      backupAutoLocation:
+        "Automatic files are saved on the server under media/backups/auto (ZIP when both types are enabled).",
+      backupAuthLoading: "Checking your account…",
+      backupNeedsLogin: "Log in to enable backups and downloads.",
+      backupNeedsAdmin:
+        "Backups are limited to administrators (role \"admin\") or superusers. Ask an admin to set your role, or use a Django superuser account.",
+      backupJwtVsAdminNote:
+        "Django admin (/admin/) only sets a browser session for that site. This app uses JWT tokens: open the app Login page and sign in with the same username and password as your superuser. (Leaving \"Remember me\" unchecked keeps tokens in this browser tab only — the app now reads those correctly.)",
+      backupNeedJwtLogin:
+        "Sign in on this app’s Login screen with your Django username and password (superuser is fine). Opening Django admin alone does not send a token to this app."
     },
     userManagement: {
       title: "User Management",
@@ -765,6 +794,8 @@ const translations = {
       noItemsUseManual: "No items available. Use manual entry to add without stock.",
       selectItem: "Select an item...",
       itemOptionStock: "{{name}} ({{sku}}) — press: {{press}} | home: {{home}}",
+      inventoryFilteredFallback:
+        "Showing all finished products — add a “Flag Stand” category in inventory or put “stand” in the item name/category to narrow this list.",
       productTypeLabel: "Product type *",
       productFlag: "Flag",
       productFlagStand: "Flag stand",
@@ -2038,7 +2069,36 @@ const translations = {
       saveSettings: "ذخیره تنظیمات",
       settingsSaved: "تنظیمات با موفقیت ذخیره شد",
       failedToSave: "ذخیره تنظیمات ناموفق بود",
-      failedToLoad: "بارگذاری تنظیمات ناموفق بود"
+      failedToLoad: "بارگذاری تنظیمات ناموفق بود",
+      backupSection: "پشتیبان‌گیری از داده‌ها",
+      backupIntro:
+        "تمام جداول را در اکسل (یک شیت به ازای هر مدل، ستون‌های m2m_* برای ارتباط چند به چند و مسیر فایل‌های بارگذاری) یا فایل SQL کامل SQLite صادر کنید. بسته ZIP هم فایل‌های media/آپلودها را دارد. پشتیبان خودکار بر اساس گزینه‌های زیر روی سرور ذخیره می‌شود.",
+      backupAutomatic: "فعال‌سازی پشتیبان خودکار",
+      backupFrequency: "فاصلهٔ زمانی پشتیبان خودکار",
+      backupDaily: "روزانه",
+      backupWeekly: "هفتگی",
+      backupMonthly: "ماهانه (حدود ۳۰ روز)",
+      backupYearly: "سالانه (حدود ۳۶۵ روز)",
+      backupIncludeExcel: "شامل اکسل در پشتیبان خودکار",
+      backupIncludeSql: "شامل SQL در پشتیبان خودکار",
+      backupLastAuto: "آخرین پشتیبان خودکار",
+      backupManualHint:
+        "دانلود دستی بلافاصله در مرورگر انجام می‌شود و به برنامهٔ زمانی بالا وابسته نیست.",
+      backupExcel: "دانلود اکسل",
+      backupSql: "دانلود SQL",
+      backupBoth: "دانلود هر دو (ZIP)",
+      backupDownloadStarted: "دانلود پشتیبان آغاز شد",
+      backupDownloadFailed: "دانلود پشتیبان ناموفق بود",
+      backupAutoLocation:
+        "فایل‌های خودکار در سرور در مسیر media/backups/auto ذخیره می‌شوند (ZIP در صورت انتخاب هر دو نوع).",
+      backupAuthLoading: "در حال بررسی حساب کاربری…",
+      backupNeedsLogin: "برای پشتیبان‌گیری و دانلود وارد شوید.",
+      backupNeedsAdmin:
+        "پشتیبان‌گیری فقط برای مدیران (نقش admin) یا سوپریوزرهاست. از یک مدیر بخواهید نقش شما را تنظیم کند یا با حساب سوپریوزر Django وارد شوید.",
+      backupJwtVsAdminNote:
+        "ورود به Django admin (/admin/) فقط نشست همان سایت را فعال می‌کند. این برنامه از توکن JWT استفاده می‌کند: از صفحهٔ ورود همین برنامه با همان نام کاربری و رمز سوپریوزر وارد شوید. اگر «مرا به خاطر بسپار» خاموش باشد، توکن فقط در همین تب مرورگر است و اکنون برنامه آن را درست می‌خواند.",
+      backupNeedJwtLogin:
+        "در صفحهٔ ورود همین برنامه با نام کاربری و رمز Django (سوپریوزر هم می‌شود) وارد شوید. تنها باز کردن Django admin توکن را به این برنامه نمی‌فرستد."
     },
     userManagement: {
       title: "مدیریت کاربران",
@@ -2525,6 +2585,8 @@ const translations = {
       noItemsUseManual: "جنس در ګدام نیست. با ورود دستی بدون موجودی اضافه کنید.",
       selectItem: "جنس را انتخاب کنید...",
       itemOptionStock: "{{name}} ({{sku}}) — چاپخانه: {{press}} | خانه: {{home}}",
+      inventoryFilteredFallback:
+        "تمام محصولات نهایی نشان داده می‌شود — برای لیست مشخص، در ګدام دسته «پایه بیرق» بسازید یا در نام/دسته «stand» بگذارید.",
       productTypeLabel: "نوع محصول *",
       productFlag: "بیرق",
       productFlagStand: "پایه بیرق",

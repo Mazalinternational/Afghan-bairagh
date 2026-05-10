@@ -12,6 +12,7 @@ import {
   HashtagIcon
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
+import { getAccessToken } from '../../utils/tokenStorage';
 import PageHeader from '../../components/common/PageHeader';
 
 const CustomerForm = () => {
@@ -95,7 +96,7 @@ const CustomerForm = () => {
     if (!validateForm()) return;
 
     // Check if user is authenticated, if not set test token
-    if (!localStorage.getItem('token')) {
+    if (!getAccessToken()) {
       localStorage.setItem('token', 'test-token');
     }
 

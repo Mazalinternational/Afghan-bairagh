@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getAccessToken, getRefreshToken } from '../../utils/tokenStorage';
 
 const InitialRoute = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -10,11 +11,11 @@ const InitialRoute = () => {
     // Check if user has previously registered (has account)
     const checkUserAccount = () => {
       const rememberedUser = localStorage.getItem('rememberMe');
-      const hasToken = localStorage.getItem('token');
-      const hasRefreshToken = localStorage.getItem('refreshToken');
+      const hasToken = getAccessToken();
+      const hasRefresh = getRefreshToken();
       
       // If user has tokens or remember me is set, they have an account
-      setHasAccount(rememberedUser || hasToken || hasRefreshToken);
+      setHasAccount(rememberedUser || hasToken || hasRefresh);
     };
 
     if (!loading) {

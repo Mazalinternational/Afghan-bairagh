@@ -146,11 +146,11 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
           aria-hidden="true"
         />
       )}
-      {/* Sidebar: glass effect with decorative shapes */}
+      {/* Sidebar: must stay position:fixed — do not add `relative` here or it overrides fixed and reserves w-64 in the flex row on mobile */}
       <div
         className={`
           w-64 md:w-44 h-screen flex flex-col fixed top-0 z-50
-          bg-blue-50 dark:bg-gray-800 shadow-md relative overflow-hidden ${isRTL ? 'border-l border-blue-200 dark:border-gray-700 right-0 md:right-0 md:left-auto' : 'border-r border-blue-200 dark:border-gray-700 left-0'}
+          bg-blue-50 dark:bg-gray-800 shadow-md overflow-hidden ${isRTL ? 'border-l border-blue-200 dark:border-gray-700 right-0 md:right-0 md:left-auto' : 'border-r border-blue-200 dark:border-gray-700 left-0'}
           transition-transform duration-300 ease-out
           md:translate-x-0
           ${
@@ -162,22 +162,24 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
           }
         `}
       >
-        {/* Decorative shapes */}
-        <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-50" />
-        <div className="absolute top-1/3 -left-8 w-24 h-24 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-30" />
-        <div className="absolute bottom-20 -right-6 w-20 h-20 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-40" />
-        
-        {onMobileClose && (
-          <button
-            type="button"
-            onClick={onMobileClose}
-            className="md:hidden absolute top-3 right-3 p-1.5 rounded text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-blue-100 dark:hover:bg-gray-700 z-50"
-            aria-label="Close menu"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        )}
-        {sidebarContent}
+        <div className="relative flex flex-col flex-1 min-h-0 h-full overflow-hidden">
+          {/* Decorative shapes */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-50 pointer-events-none" />
+          <div className="absolute top-1/3 -left-8 w-24 h-24 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-30 pointer-events-none" />
+          <div className="absolute bottom-20 -right-6 w-20 h-20 bg-blue-400/40 dark:bg-blue-600/30 rounded-full opacity-40 pointer-events-none" />
+
+          {onMobileClose && (
+            <button
+              type="button"
+              onClick={onMobileClose}
+              className="md:hidden absolute top-3 right-3 p-1.5 rounded text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-blue-100 dark:hover:bg-gray-700 z-50"
+              aria-label="Close menu"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+          )}
+          {sidebarContent}
+        </div>
       </div>
     </>
   );

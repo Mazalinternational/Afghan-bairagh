@@ -21,6 +21,9 @@ class User(AbstractUser, TimestampMixin):
     permissions = models.JSONField(default=list, blank=True, help_text="List of module permissions for staff users")
     
     def save(self, *args, **kwargs):
+        # API/JWT permissions use `role`; Django superuser flag alone did not grant admin role.
+        if self.is_superuser:
+            self.role = self.ADMIN
         is_new = self.pk is None
         super().save(*args, **kwargs)
         if is_new:
@@ -65,6 +68,28 @@ class SystemSettings(TimestampMixin):
     company_address = models.TextField(blank=True, null=True)
     company_phone = models.CharField(max_length=20, blank=True, null=True)
     company_email = models.EmailField(blank=True, null=True)
+
+    # Backup (automatic runs use backup_last_auto_run_at; preferences saved here)
+    BACKUP_FREQ_DAILY = 'daily'
+    BACKUP_FREQ_WEEKLY = 'weekly'
+    BACKUP_FREQ_MONTHLY = 'monthly'
+    BACKUP_FREQ_YEARLY = 'yearly'
+    BACKUP_FREQUENCY_CHOICES = [
+        (BACKUP_FREQ_DAILY, 'Daily'),
+        (BACKUP_FREQ_WEEKLY, 'Weekly'),
+        (BACKUP_FREQ_MONTHLY, 'Monthly'),
+        (BACKUP_FREQ_YEARLY, 'Yearly'),
+    ]
+
+    backup_auto_enabled = models.BooleanField(default=False)
+    backup_frequency = models.CharField(
+        max_length=20,
+        choices=BACKUP_FREQUENCY_CHOICES,
+        default=BACKUP_FREQ_DAILY,
+    )
+    backup_include_excel = models.BooleanField(default=True)
+    backup_include_sql = models.BooleanField(default=True)
+    backup_last_auto_run_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
         db_table = 'system_settings'

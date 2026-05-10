@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
+import { getAccessToken } from '../utils/tokenStorage';
 
 const AuthContext = createContext();
 
@@ -17,13 +18,36 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Force loading to false after 1 second for testing
-    const timer = setTimeout(() => {
-      console.log('Forcing loading to false');
-      setLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    const bootstrap = async () => {
+      const token = getAccessToken();
+      if (!token) {
+        setIsAuthenticated(false);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        const userData = await authService.getCurrentUser();
+        if (!cancelled) {
+          setUser(userData);
+          setIsAuthenticated(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (credentials) => {

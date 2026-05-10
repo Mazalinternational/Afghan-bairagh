@@ -1,6 +1,9 @@
+# setuptools 82+ drops pkg_resources; djangorestframework-simplejwt still imports it (Python 3.14).
+setuptools>=70,<82
 Django==4.2.7
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
 django-filter==24.1
 django-cors-headers==4.3.1
 reportlab==4.0.9
+openpyxl==3.1.2

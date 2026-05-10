@@ -2,7 +2,10 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 class IsAdmin(BasePermission):
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'admin'
+        u = request.user
+        if not u.is_authenticated:
+            return False
+        return getattr(u, 'role', None) == 'admin' or bool(getattr(u, 'is_superuser', False))
 
 class IsStaff(BasePermission):
     def has_permission(self, request, view):

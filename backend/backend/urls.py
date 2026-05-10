@@ -21,10 +21,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.conf import settings
 from django.conf.urls.static import static
 
+from core.backup_views import BackupDownloadView
+
 urlpatterns = [
     path('', RedirectView.as_view(url='/admin/', permanent=False)),
     path('admin/', admin.site.urls),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # Registered here so the route is unmistakable next to other api/* patterns (avoids 404 if core.urls changes).
+    path('api/auth/backup/download/', BackupDownloadView.as_view(), name='backup-download'),
     path('api/auth/', include('core.urls')),
     path('api/', include('customers.urls')),
     path('api/', include('expenses.urls')),

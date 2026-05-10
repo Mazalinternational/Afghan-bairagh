@@ -18,6 +18,53 @@ import { useTranslation } from '../../i18n/fallback';
 import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../utils/numerals';
 import ProductTypeManager from '../../components/orders/ProductTypeManager';
 
+/** True if inventory row is a finished flag-stand product (category/name), not a cloth flag. */
+function inventoryLooksLikeFlagStand(inv) {
+  if (!inv || inv.item_type !== 'finished_product') return false;
+  const c = String(inv.category_name || '').toLowerCase().trim();
+  const n = String(inv.name || '').toLowerCase();
+  if (c === 'flag stand' || c.includes('flag stand')) return true;
+  if (c.includes('stand') && c !== 'flags') return true;
+  if (n.includes('flag stand')) return true;
+  if (/\bstands?\b/.test(n) && /flag|pole|floor|table|display|mount/i.test(`${n} ${c}`)) return true;
+  return false;
+}
+
+function inferProductTypeFromInventory(inv) {
+  if (!inv) return 'flag';
+  return inventoryLooksLikeFlagStand(inv) ? 'flag_stand' : 'flag';
+}
+
+/**
+ * Finished products for this line: Flags vs Flag stands (by inventory category/name).
+ * Falls back to all finished products if nothing matches so the list is never empty.
+ */
+function filterInventoryForOrderLine(allItems, productType) {
+  const list = Array.isArray(allItems) ? allItems : [];
+  const finished = list.filter((i) => i.item_type === 'finished_product');
+  let out;
+  if (productType === 'flag_stand') {
+    out = finished.filter((i) => inventoryLooksLikeFlagStand(i));
+  } else {
+    out = finished.filter((i) => !inventoryLooksLikeFlagStand(i));
+  }
+  if (out.length === 0) {
+    return finished;
+  }
+  return out;
+}
+
+/** True when no inventory row strictly matched — UI shows all finished products as fallback. */
+function inventoryFilterUsesFallback(allItems, productType) {
+  const finished = (Array.isArray(allItems) ? allItems : []).filter((i) => i.item_type === 'finished_product');
+  if (!finished.length) return false;
+  const strict =
+    (productType || 'flag') === 'flag_stand'
+      ? finished.filter((i) => inventoryLooksLikeFlagStand(i))
+      : finished.filter((i) => !inventoryLooksLikeFlagStand(i));
+  return strict.length === 0;
+}
+
 /** Map API order line → CreateOrder local row (needs inventory catalog for FK lookup). */
 function mapApiOrderItemToLine(oi, itemsCatalog) {
   const rawItemId =
@@ -33,14 +80,16 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
     inv != null && inv.cost_price != null && inv.cost_price !== ''
       ? String(inv.cost_price)
       : '';
+  const productType = inferProductTypeFromInventory(inv);
+  const sizeFromApi = oi.flag_size || '';
   return {
     item: inv || null,
     itemId: rawItemId != null ? String(rawItemId) : '',
     isManual,
     manualItemName: oi.manual_item_name || '',
-    product_type: 'flag',
-    flag_size: oi.flag_size || '',
-    flag_stand_type: '',
+    product_type: productType,
+    flag_size: productType === 'flag' ? sizeFromApi : '',
+    flag_stand_type: productType === 'flag_stand' ? sizeFromApi : '',
     quality_design_type: oi.quality_design_type || '',
     stock_type: oi.stock_type || 'press_stock',
     quantity: qtyStr,
@@ -925,7 +974,7 @@ const CreateOrder = () => {
                         }`}
                       >
                         <option value="">{t('orders.selectItem')}</option>
-                        {(Array.isArray(items) ? items : []).map((i) => (
+                        {filterInventoryForOrderLine(items, item.product_type || 'flag').map((i) => (
                           <option key={i.id} value={String(i.id)}>
                             {t('orders.itemOptionStock', {
                               name: i.name,
@@ -940,6 +989,11 @@ const CreateOrder = () => {
                     {errors[`item_${index}_item`] && (
                       <p className="mt-1 text-[10px] sm:text-xs text-red-600 dark:text-red-400">{errors[`item_${index}_item`]}</p>
                     )}
+                    {!item.isManual && inventoryFilterUsesFallback(items, item.product_type) && (
+                      <p className="mt-1 text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
+                        {t('orders.inventoryFilteredFallback')}
+                      </p>
+                    )}
                   </div>
                   )}
 
@@ -952,13 +1006,26 @@ const CreateOrder = () => {
                       value={item.product_type || 'flag'}
                       onChange={(e) => {
                         const newType = e.target.value;
-                        updateOrderItem(index, 'product_type', newType);
-                        // Clear the opposite field when switching
-                        if (newType === 'flag') {
-                          updateOrderItem(index, 'flag_stand_type', '');
-                        } else {
-                          updateOrderItem(index, 'flag_size', '');
-                        }
+                        const allowed = filterInventoryForOrderLine(items, newType);
+                        const cur = orderItems[index]?.item;
+                        const keep =
+                          cur &&
+                          allowed.some((x) => String(x.id) === String(cur.id));
+                        setOrderItems((prev) => {
+                          const next = [...prev];
+                          const row = { ...next[index], product_type: newType };
+                          if (newType === 'flag') {
+                            row.flag_stand_type = '';
+                          } else {
+                            row.flag_size = '';
+                          }
+                          if (!keep) {
+                            row.itemId = '';
+                            row.item = null;
+                          }
+                          next[index] = row;
+                          return next;
+                        });
                       }}
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >

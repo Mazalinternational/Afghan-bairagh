@@ -106,6 +106,7 @@ class Command(BaseCommand):
         categories_data = [
             {'name': 'Fabric', 'description': 'Various types of fabric materials'},
             {'name': 'Flags', 'description': 'Finished flag products'},
+            {'name': 'Flag Stand', 'description': 'Finished flag stand products'},
             {'name': 'Printing Materials', 'description': 'Inks, papers, and printing supplies'},
             {'name': 'Hardware', 'description': 'Poles, ropes, and mounting hardware'},
             {'name': 'Packaging', 'description': 'Boxes, bags, and wrapping materials'},
@@ -120,9 +121,10 @@ class Command(BaseCommand):
         items_data = [
             {'name': 'Cotton Fabric', 'sku': 'FAB001', 'item_type': 'raw_material', 'category': categories[0], 'unit_price': Decimal('150'), 'current_stock': 50, 'minimum_stock': 10},
             {'name': 'Afghan Flag 3x5ft', 'sku': 'FLAG001', 'item_type': 'finished_product', 'category': categories[1], 'unit_price': Decimal('500'), 'current_stock': 25, 'minimum_stock': 5},
-            {'name': 'Printing Ink Black', 'sku': 'INK001', 'item_type': 'raw_material', 'category': categories[2], 'unit_price': Decimal('200'), 'current_stock': 15, 'minimum_stock': 3},
-            {'name': 'Flag Pole 6ft', 'sku': 'POLE001', 'item_type': 'raw_material', 'category': categories[3], 'unit_price': Decimal('300'), 'current_stock': 30, 'minimum_stock': 8},
-            {'name': 'Gift Box Medium', 'sku': 'BOX001', 'item_type': 'raw_material', 'category': categories[4], 'unit_price': Decimal('50'), 'current_stock': 100, 'minimum_stock': 20},
+            {'name': 'Metal Flag Stand Display', 'sku': 'FSTAND001', 'item_type': 'finished_product', 'category': categories[2], 'unit_price': Decimal('1200'), 'current_stock': 12, 'minimum_stock': 3, 'size': 'large'},
+            {'name': 'Printing Ink Black', 'sku': 'INK001', 'item_type': 'raw_material', 'category': categories[3], 'unit_price': Decimal('200'), 'current_stock': 15, 'minimum_stock': 3},
+            {'name': 'Flag Pole 6ft', 'sku': 'POLE001', 'item_type': 'raw_material', 'category': categories[4], 'unit_price': Decimal('300'), 'current_stock': 30, 'minimum_stock': 8},
+            {'name': 'Gift Box Medium', 'sku': 'BOX001', 'item_type': 'raw_material', 'category': categories[5], 'unit_price': Decimal('50'), 'current_stock': 100, 'minimum_stock': 20},
         ]
         
         items = []
@@ -164,10 +166,10 @@ class Command(BaseCommand):
         
         purchases_data = [
             {'supplier': suppliers[0], 'item_name': 'Cotton Fabric Roll', 'quantity': 20, 'cost': Decimal('3000'), 'is_for_press': True, 'item': items[0] if items else None},
-            {'supplier': suppliers[1], 'item_name': 'Printing Ink Set', 'quantity': 10, 'cost': Decimal('2000'), 'is_for_press': True, 'item': items[2] if len(items) > 2 else None},
+            {'supplier': suppliers[1], 'item_name': 'Printing Ink Set', 'quantity': 10, 'cost': Decimal('2000'), 'is_for_press': True, 'item': items[1] if len(items) > 1 else None},
             {'supplier': suppliers[2], 'item_name': 'Office Supplies', 'quantity': 1, 'cost': Decimal('1500'), 'is_for_press': False, 'description': 'Stationery and office materials'},
-            {'supplier': suppliers[3], 'item_name': 'Flag Poles', 'quantity': 15, 'cost': Decimal('4500'), 'is_for_press': True, 'item': items[3] if len(items) > 3 else None},
-            {'supplier': suppliers[4], 'item_name': 'Packaging Materials', 'quantity': 50, 'cost': Decimal('2500'), 'is_for_press': True, 'item': items[4] if len(items) > 4 else None},
+            {'supplier': suppliers[3], 'item_name': 'Flag Poles', 'quantity': 15, 'cost': Decimal('4500'), 'is_for_press': True, 'item': items[2] if len(items) > 2 else None},
+            {'supplier': suppliers[4], 'item_name': 'Packaging Materials', 'quantity': 50, 'cost': Decimal('2500'), 'is_for_press': True, 'item': items[3] if len(items) > 3 else None},
         ]
         
         purchases = []

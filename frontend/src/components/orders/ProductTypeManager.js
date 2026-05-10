@@ -23,9 +23,9 @@ const ProductTypeManager = ({ onSelect, productType, fieldName = 'flag_size', la
         setTypes(JSON.parse(savedTypes));
       } else {
         // Default common sizes based on field type
-        const defaultTypes = fieldName === 'flag_size' 
+        const defaultTypes = fieldName === 'flag_size'
           ? ['3x5 feet', '4x6 feet', '5x8 feet', '2x3 feet', '6x10 feet']
-          : ['Wooden Stand', 'Metal Stand', 'Plastic Stand', 'Table Stand', 'Floor Stand'];
+          : ['Flag Stand', 'Wooden Stand', 'Metal Stand', 'Plastic Stand', 'Table Stand', 'Floor Stand'];
         setTypes(defaultTypes);
         localStorage.setItem(storageKey, JSON.stringify(defaultTypes));
       }

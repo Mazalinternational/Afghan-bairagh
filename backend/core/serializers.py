@@ -5,8 +5,11 @@ from .models import User, SystemSettings
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'permissions', 'created_at', 'is_active']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'role', 'permissions',
+            'is_superuser', 'is_staff', 'created_at', 'is_active',
+        ]
+        read_only_fields = ['id', 'created_at', 'is_superuser', 'is_staff']
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
@@ -59,6 +62,9 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'system_name', 'system_logo', 'primary_currency', 'currency_symbol',
             'date_format', 'time_format', 'timezone', 'tax_rate', 'low_stock_threshold',
-            'company_address', 'company_phone', 'company_email', 'created_at', 'updated_at'
+            'company_address', 'company_phone', 'company_email',
+            'backup_auto_enabled', 'backup_frequency', 'backup_include_excel', 'backup_include_sql',
+            'backup_last_auto_run_at',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'backup_last_auto_run_at']

@@ -9,12 +9,17 @@ const Layout = ({ children }) => {
   const isRTL = currentLanguage === 'prs' || currentLanguage === 'ps';
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-screen min-h-0 bg-gray-100 dark:bg-gray-900">
       <Sidebar
         isMobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
       />
-      <div className="flex-1 relative overflow-hidden">
+      {/* Fixed sidebar does not use layout width — offset main so desktop content is not drawn under the bar (md:w-44 = 11rem) */}
+      <div
+        className={`flex-1 relative min-w-0 overflow-hidden ${
+          isRTL ? 'md:mr-44' : 'md:ml-44'
+        }`}
+      >
         <button
           type="button"
           onClick={() => setMobileMenuOpen(true)}

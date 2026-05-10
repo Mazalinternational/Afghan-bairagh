@@ -1,6 +1,19 @@
 import axios from 'axios';
+import { getAccessToken } from '../utils/tokenStorage';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+/**
+ * Backend origin only (no trailing slash, no /api suffix).
+ * If REACT_APP_API_URL is set to http://host/api, requests like /api/auth/... would become /api/api/auth/... (404).
+ */
+function normalizeApiBaseUrl(raw) {
+  let base = (raw || 'http://localhost:8000').trim().replace(/\/+$/, '');
+  if (/\/api$/i.test(base)) {
+    base = base.replace(/\/api$/i, '');
+  }
+  return base;
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_URL);
 
 // Create axios instance
 const api = axios.create({
@@ -13,7 +26,11 @@ const api = axios.create({
 // Request interceptor - attach auth token when available
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const method = (config.method || 'get').toLowerCase();
+    if (method === 'get' || method === 'head') {
+      delete config.headers['Content-Type'];
+    }
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
@@ -32,25 +49,45 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const originalRequest = error.config;
+    const status = error.response?.status;
+
+    if (originalRequest?.skipAuthRetry) {
+      return Promise.reject(error);
+    }
+
     if (
-      error.response?.status === 401 &&
+      status === 401 &&
       originalRequest &&
       !originalRequest._authRetry &&
-      localStorage.getItem('token')
+      getAccessToken()
     ) {
       originalRequest._authRetry = true;
+      originalRequest._401RetryUsedTestToken =
+        getAccessToken() === 'test-token';
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('refreshToken');
       if (originalRequest.headers) {
         delete originalRequest.headers.Authorization;
       }
       return api(originalRequest);
     }
-    if (error.response?.status === 401 && localStorage.getItem('token') !== 'test-token') {
+
+    // Only force logout after the unauthenticated retry still returned 401.
+    // Previously: `token !== 'test-token'` was true when token was already removed,
+    // so the first 401 on protected routes (e.g. blob backup) triggered an immediate redirect to /login.
+    if (status === 401 && originalRequest?._authRetry) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
-      window.location.href = '/login';
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('refreshToken');
+      if (!originalRequest._401RetryUsedTestToken) {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
     }
+
     return Promise.reject(error);
   }
 );

@@ -1,4 +1,10 @@
 import api from './api';
+import {
+  clearAuthTokens,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+} from '../utils/tokenStorage';
 
 class AuthService {
   // Register user
@@ -73,7 +79,7 @@ class AuthService {
   // Refresh token
   async refreshToken() {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = getRefreshToken();
       if (!refreshToken) {
         throw new Error('No refresh token available');
       }
@@ -83,8 +89,8 @@ class AuthService {
       });
 
       const { access } = response.data;
-      localStorage.setItem('token', access);
-      
+      setAccessToken(access);
+
       return access;
     } catch (error) {
       this.logout();
@@ -94,19 +100,18 @@ class AuthService {
 
   // Logout user
   logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    clearAuthTokens();
     localStorage.removeItem('rememberMe');
   }
 
   // Check if user is authenticated
   isAuthenticated() {
-    return !!localStorage.getItem('token');
+    return !!getAccessToken();
   }
 
   // Get stored token
   getToken() {
-    return localStorage.getItem('token');
+    return getAccessToken();
   }
 
   // Set remember me preference
@@ -135,10 +140,12 @@ class AuthService {
 
   // Check if user has an account
   hasAccount() {
-    return localStorage.getItem('hasAccount') === 'true' || 
-           localStorage.getItem('rememberMe') === 'true' ||
-           localStorage.getItem('token') ||
-           localStorage.getItem('refreshToken');
+    return (
+      localStorage.getItem('hasAccount') === 'true' ||
+      localStorage.getItem('rememberMe') === 'true' ||
+      !!getAccessToken() ||
+      !!getRefreshToken()
+    );
   }
 }
 
