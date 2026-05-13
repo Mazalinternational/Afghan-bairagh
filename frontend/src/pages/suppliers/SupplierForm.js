@@ -21,6 +21,7 @@ const SupplierForm = () => {
 
   const [formData, setFormData] = useState({
     name: '',
+    manual_serial_no: '',
     contact_person: '',
     phone: '',
     phone_secondary: '',
@@ -43,6 +44,7 @@ const SupplierForm = () => {
       const res = await api.get(`/api/suppliers/${id}/`);
       setFormData({
         name: res.data.name || '',
+        manual_serial_no: res.data.manual_serial_no || '',
         contact_person: res.data.contact_person || '',
         phone: res.data.phone || '',
         phone_secondary: res.data.phone_secondary || '',
@@ -196,6 +198,20 @@ const SupplierForm = () => {
                   placeholder={`${t('suppliers.enterPhone')} (optional)`}
                 />
               </div>
+            </div>
+
+            <div className="max-w-md">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('customers.manualSerialNo')}
+              </label>
+              <input
+                type="text"
+                name="manual_serial_no"
+                value={formData.manual_serial_no}
+                onChange={handleChange}
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={t('customers.manualSerialNo')}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

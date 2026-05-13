@@ -14,9 +14,10 @@
 
 ### Required Variables
 
-- **REACT_APP_API_URL**: Backend API base URL
-  - Development: `http://localhost:8000`
-  - Production: `https://api.yourdomain.com`
+- **REACT_APP_API_URL**: Backend API base URL (no `/api` suffix)
+  - Development: `http://localhost:8000` (`.env`)
+  - Production: `https://afghanflags.com` (`.env.production`; `api.js` also defaults to this if the var is missing in a production build)
+  - Subdomain API only: `https://api.afghanflags.com`
 
 ### Optional Variables
 
@@ -33,11 +34,15 @@ REACT_APP_API_URL=http://localhost:8000
 REACT_APP_ENABLE_AUTH=false
 ```
 
-### Production (.env.production)
+### Production (`frontend/.env.production` — used by `npm run build`)
 ```env
-REACT_APP_API_URL=https://api.yourdomain.com
-REACT_APP_ENABLE_AUTH=true
+REACT_APP_API_URL=https://afghanflags.com
 ```
+Override for a one-off build:
+```bash
+set REACT_APP_API_URL=https://afghanflags.com&& npm run build
+```
+(Unix: `REACT_APP_API_URL=https://afghanflags.com npm run build`)
 
 ### Testing (.env.test)
 ```env

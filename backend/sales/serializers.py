@@ -21,7 +21,7 @@ class SaleItemSerializer(serializers.ModelSerializer):
 class SalePaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalePayment
-        fields = ['id', 'amount_paid', 'payment_method', 'payment_date', 'notes']
+        fields = ['id', 'sale', 'amount_paid', 'payment_method', 'payment_date', 'notes']
         read_only_fields = ['id', 'payment_date']
 
 
@@ -109,16 +109,21 @@ class SaleListSerializer(serializers.ModelSerializer):
     """Simplified serializer for listing sales"""
     customer_name = serializers.CharField(source='customer.name', read_only=True)
     item_count = serializers.SerializerMethodField()
-    
+    total_paid = serializers.SerializerMethodField()
+
     class Meta:
         model = Sale
         fields = [
             'id', 'customer', 'customer_name', 'sale_date', 'total_amount',
-            'net_amount', 'status', 'payment_status', 'item_count'
+            'net_amount', 'due', 'status', 'payment_status', 'item_count',
+            'total_paid', 'created_at',
         ]
-    
+
     def get_item_count(self, obj):
         return obj.items.count()
+
+    def get_total_paid(self, obj):
+        return float(obj.total_paid or 0)
 
 
 class DirectSaleItemSerializer(serializers.ModelSerializer):
@@ -142,7 +147,7 @@ class DirectSaleItemSerializer(serializers.ModelSerializer):
 class DirectSalePaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = DirectSalePayment
-        fields = ['id', 'amount_paid', 'payment_method', 'payment_date', 'notes']
+        fields = ['id', 'direct_sale', 'amount_paid', 'payment_method', 'payment_date', 'notes']
         read_only_fields = ['id', 'payment_date']
 
 
@@ -192,16 +197,21 @@ class DirectSaleSerializer(serializers.ModelSerializer):
 class DirectSaleListSerializer(serializers.ModelSerializer):
     customer_name_display = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
-    
+    total_paid = serializers.SerializerMethodField()
+
     class Meta:
         model = DirectSale
         fields = [
-            'id', 'customer_name_display', 'sale_date', 'total_amount', 'cost_amount',
-            'show_date_on_bill', 'net_amount', 'profit', 'status', 'payment_status', 'item_count'
+            'id', 'customer', 'customer_name_display', 'sale_date', 'total_amount', 'cost_amount',
+            'show_date_on_bill', 'net_amount', 'profit', 'due', 'status', 'payment_status', 'item_count',
+            'total_paid', 'created_at',
         ]
-    
+
     def get_customer_name_display(self, obj):
         return obj.customer.name if obj.customer else obj.customer_name
-    
+
     def get_item_count(self, obj):
         return obj.items.count()
+
+    def get_total_paid(self, obj):
+        return float(obj.total_paid or 0)

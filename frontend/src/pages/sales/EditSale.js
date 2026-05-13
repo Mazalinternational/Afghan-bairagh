@@ -10,6 +10,7 @@ import {
 import api from '../../services/api';
 import { useTranslation } from '../../i18n/fallback';
 import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../utils/numerals';
+import { effectivePurchaseUnitFromInventory } from '../../utils/saleItemCost';
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/common/PageHeader';
 
@@ -153,16 +154,25 @@ const EditSale = () => {
     return stockType === 'press_stock' ? (row.press_stock ?? 0) : (row.home_stock ?? 0);
   };
 
+  const getInventoryItemForLine = (saleItem) => {
+    if (!saleItem?.item) return null;
+    const list = Array.isArray(items) ? items : [];
+    return list.find((i) => String(i.id) === String(saleItem.item)) || null;
+  };
+
+  const getEffectiveCostMeta = (saleItem) => {
+    const inv = getInventoryItemForLine(saleItem);
+    return effectivePurchaseUnitFromInventory(inv);
+  };
+
   const calculateTotal = () => {
     const subtotal = saleItems.reduce((sum, row) => {
       return sum + parseLocaleFloat(row.quantity) * parseLocaleFloat(row.price_per_unit || 0);
     }, 0);
 
     const totalCost = saleItems.reduce((sum, saleItem) => {
-      const selectedItem = (Array.isArray(items) ? items : []).find(
-        (invItem) => String(invItem.id) === String(saleItem.item)
-      );
-      const unitCost = parseLocaleFloat(selectedItem?.unit_price || 0);
+      const unitCost = getEffectiveCostMeta(saleItem).value;
+      if (unitCost == null) return sum;
       return sum + parseLocaleFloat(saleItem.quantity) * unitCost;
     }, 0);
 
@@ -196,13 +206,13 @@ const EditSale = () => {
 
       const q = parseLocaleFloat(row.quantity);
       if (!row.quantity || Number.isNaN(q) || q <= 0) {
-        addToast(`${t('sales.quantityMustBeGreaterThanZero')} (${t('sales.itemNumber', { number: i + 1 })})`, 'error');
+        addToast(`${t('sales.quantityMustBeGreaterThanZero')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
 
       const p = parseLocaleFloat(row.price_per_unit);
       if (!row.price_per_unit || Number.isNaN(p) || p <= 0) {
-        addToast(`${t('sales.priceMustBeGreaterThanZero')} (${t('sales.itemNumber', { number: i + 1 })})`, 'error');
+        addToast(`${t('sales.priceMustBeGreaterThanZero')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
 
@@ -411,110 +421,128 @@ const EditSale = () => {
                     key={index}
                     className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('sales.item')}
-                        </label>
-                        <select
-                          value={
-                            saleItem.item != null
-                              ? typeof saleItem.item === 'object'
-                                ? String(saleItem.item.id)
-                                : String(saleItem.item)
-                              : ''
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const selected = val
-                              ? (Array.isArray(items) ? items : []).find((i) => String(i.id) === val)
-                              : null;
-                            updateSaleItem(index, 'item', selected ? selected.id : '');
-                            if (selected) updateSaleItem(index, 'price_per_unit', selected.unit_price ?? '');
-                          }}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                          required
-                        >
-                          <option value="">{t('sales.selectItem')}</option>
-                          {(Array.isArray(items) ? items : []).map((invItem) => (
-                            <option key={invItem.id} value={String(invItem.id)}>
-                              {invItem.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-2">
+                        <div className="sm:col-span-3">
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.item')}</label>
+                          <div className="h-8">
+                            <select
+                              value={saleItem.item != null ? (typeof saleItem.item === 'object' ? String(saleItem.item.id) : String(saleItem.item)) : ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const selected = val ? (Array.isArray(items) ? items : []).find((i) => String(i.id) === val) : null;
+                                updateSaleItem(index, 'item', selected ? selected.id : '');
+                                if (selected) updateSaleItem(index, 'price_per_unit', selected.unit_price ?? '');
+                              }}
+                              className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-1 focus:ring-blue-500 box-border"
+                              required
+                            >
+                              <option value="">{t('sales.selectItem')}</option>
+                              {(Array.isArray(items) ? items : []).map((invItem) => (
+                                <option key={invItem.id} value={String(invItem.id)}>{invItem.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('sales.quantity')}
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={saleItem.quantity}
-                          onChange={(e) => updateSaleItem(index, 'quantity', normalizeNumeralString(e.target.value))}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.quantity')}</label>
+                          <div className="h-8">
+                            <input type="text" inputMode="numeric" value={saleItem.quantity} onChange={(e) => updateSaleItem(index, 'quantity', normalizeNumeralString(e.target.value))} className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md box-border" required />
+                          </div>
+                        </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('common.cost')}
-                        </label>
-                        <input
-                          type="text"
-                          value={`AFN ${parseLocaleFloat((Array.isArray(items) ? items : []).find((invItem) => String(invItem.id) === String(saleItem.item))?.unit_price || 0).toFixed(2)}`}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white"
-                          readOnly
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('sales.sellingPricePerUnit')}
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={saleItem.price_per_unit}
-                          onChange={(e) => updateSaleItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('sales.stockType')}
-                        </label>
-                        <select
-                          value={saleItem.stock_type}
-                          onChange={(e) => updateSaleItem(index, 'stock_type', e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="press_stock">{t('sales.pressStock')}</option>
-                          <option value="home_stock">{t('sales.homeStock')}</option>
-                        </select>
-                        {saleItem.item && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {t('sales.availableStock')}: {getItemStock(saleItem.item, saleItem.stock_type)}
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.purchaseCostPerUnit')}</label>
+                          <div className="h-8">
+                            <input type="text" readOnly className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white box-border" value={(() => {
+                              if (!saleItem.item) return '—';
+                              const meta = getEffectiveCostMeta(saleItem);
+                              if (meta.value != null) return `AFN ${meta.value.toFixed(2)}`;
+                              if (meta.listUnitPrice != null) return `${t('sales.costNotSetShort')} — ${t('sales.listPriceReference')} AFN ${meta.listUnitPrice.toFixed(2)}`;
+                              return t('sales.costNotSetShort');
+                            })()} />
+                          </div>
+                          <p className="text-[10px] leading-tight text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.5rem]">
+                            {saleItem.item ? (() => {
+                              const meta = getEffectiveCostMeta(saleItem);
+                              if (meta.source === 'inventory') return t('sales.purchaseCostSourceInventory');
+                              if (meta.source === 'supplier') return t('sales.purchaseCostSourceSupplier');
+                              if (meta.listUnitPrice != null) return t('sales.purchaseCostNoCostListPriceHint');
+                              return t('sales.costNotSetInInventory');
+                            })() : '\u00a0'}
                           </p>
-                        )}
-                      </div>
+                        </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          {t('sales.total')}
-                        </label>
-                        <input
-                          type="text"
-                          value={`AFN ${(parseLocaleFloat(saleItem.quantity) * parseLocaleFloat(saleItem.price_per_unit || 0)).toFixed(2)}`}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white"
-                          readOnly
-                        />
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.sellingPricePerUnit')}</label>
+                          <div className="h-8">
+                            <input type="text" inputMode="decimal" value={saleItem.price_per_unit} onChange={(e) => updateSaleItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))} className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-1 focus:ring-blue-500 box-border" required />
+                          </div>
+                          <div className="mt-0.5 min-h-[1.5rem]" aria-hidden="true" />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.stockType')}</label>
+                          <div className="h-8">
+                            <select value={saleItem.stock_type} onChange={(e) => updateSaleItem(index, 'stock_type', e.target.value)} className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md box-border">
+                              <option value="press_stock">{t('sales.pressStock')}</option>
+                              <option value="home_stock">{t('sales.homeStock')}</option>
+                            </select>
+                          </div>
+                          <p className="text-[10px] leading-tight text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.5rem]">
+                            {saleItem.item ? `${t('sales.availableStock')}: ${getItemStock(saleItem.item, saleItem.stock_type)}` : '\u00a0'}
+                          </p>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-0.5">{t('sales.total')}</label>
+                          <div className="h-8">
+                            <input type="text" readOnly className="w-full h-full min-h-0 px-2 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 dark:text-white box-border" value={`AFN ${(parseLocaleFloat(saleItem.quantity) * parseLocaleFloat(saleItem.price_per_unit || 0)).toFixed(2)}`} />
+                          </div>
+                          <div className="mt-0.5 min-h-[1.5rem]" aria-hidden="true" />
+                        </div>
                       </div>
                     </div>
+
+                    {saleItem.item ? (
+                      <div className="mt-2 rounded-lg border border-blue-100 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/25 px-3 py-2 text-[11px] leading-snug text-gray-700 dark:text-gray-300">
+                        {(() => {
+                          const meta = getEffectiveCostMeta(saleItem);
+                          const unitCost = meta.value;
+                          const qty = parseLocaleFloat(saleItem.quantity) || 0;
+                          const unitSell = parseLocaleFloat(saleItem.price_per_unit || 0) || 0;
+                          if (unitCost == null) {
+                            return (
+                              <p>
+                                {meta.listUnitPrice != null
+                                  ? t('sales.lineProfitNeedsCostOrUseList', { list: meta.listUnitPrice.toFixed(2) })
+                                  : t('sales.costNotSetInInventory')}
+                              </p>
+                            );
+                          }
+                          const lineProfit = qty * (unitSell - unitCost);
+                          return (
+                            <div className="space-y-1">
+                              <p>
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                  {t('sales.lineProfitAtYourPrice')}{' '}
+                                </span>
+                                <span className={lineProfit >= 0 ? 'text-green-700 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400 font-semibold'}>
+                                  AFN {lineProfit.toFixed(2)}
+                                </span>
+                                <span className="text-gray-500 dark:text-gray-400"> — {t('sales.lineProfitHint')}</span>
+                              </p>
+                              <p className="text-gray-600 dark:text-gray-400">
+                                {t('sales.profitIfSoldAtCost', { cost: unitCost.toFixed(2) })}
+                                <span className="font-semibold text-gray-800 dark:text-gray-200"> AFN 0.00</span>
+                                {qty > 0 ? ` ${t('sales.forThisLineQty', { qty: qty.toFixed(0) })}` : null}
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : null}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                       <div>
@@ -601,6 +629,10 @@ const EditSale = () => {
                   <span className="font-medium text-gray-900 dark:text-white">+AFN {totals.tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">{t('sales.totalPurchaseCost')}:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">AFN {totals.totalCost.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600 dark:text-gray-400">{t('sales.profit')}:</span>
                   <span
                     className={`font-medium ${totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
@@ -608,6 +640,7 @@ const EditSale = () => {
                     AFN {totals.profit.toFixed(2)}
                   </span>
                 </div>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('sales.profitSummaryFootnote')}</p>
                 <div className="flex justify-between text-base font-bold border-t border-gray-200 dark:border-gray-700 pt-2 mt-2">
                   <span className="text-gray-900 dark:text-white">{t('sales.netAmount')}:</span>
                   <span className="text-blue-600 dark:text-blue-400">AFN {totals.total.toFixed(2)}</span>

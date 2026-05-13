@@ -9,20 +9,75 @@ const BILL_FOOTER = {
   address: 'چهارراهی صدارت، سرک وزارت داخله سابقه، مارکیت مطابع صنعتی جاوید، منزل دوم دوکان نمبر A2 14-15',
 };
 
-const PrintablePressBill = ({ record }) => {
+/** Max line items on one A4 press bill; smaller typography so ~15 rows fit. */
+const PRESS_BILL_MAX_LINES = 15;
+
+function parseLineNum(v) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Show making unit price, legacy per-meter, or derived rate from totals when DB fields are zero. */
+function formatMakingCell(line, t, isCustomerBill) {
+  const mk = parseLineNum(line.making_unit_price ?? line.making_price);
+  if (mk > 0) return `AFN ${formatNumberTrimZeros(mk, '0')}`;
+  const perM = parseLineNum(line.per_meter_price);
+  if (perM > 0) {
+    return `${formatNumberTrimZeros(perM, '0')} ${t('printing.afnPerMeter')}`;
+  }
+  const selling = parseLineNum(line.selling_unit_price ?? line.selling_price);
+  const meters = parseLineNum(line.total_meters);
+  const sub = parseLineNum(line.line_total);
+  const qty = parseLineNum(line.qty ?? line.job_qty);
+  // Legacy meter-priced lines (no per-unit selling): infer AFN/m from stored totals
+  if (selling <= 0 && meters > 0 && sub > 0) {
+    const implied = sub / meters;
+    return `${formatNumberTrimZeros(implied, '0')} ${t('printing.afnPerMeter')}`;
+  }
+  if (isCustomerBill && selling <= 0 && qty > 0 && sub > 0) {
+    return `AFN ${formatNumberTrimZeros(sub / qty, '0')}`;
+  }
+  return '—';
+}
+
+/**
+ * @param {object} record - printing job with items
+ * @param {'customer'|'internal'} billAudience - customer bill hides selling column and profit; internal shows full margin view
+ */
+const PrintablePressBill = ({ record, billAudience = 'internal' }) => {
   const { t } = useTranslation();
   const billRef = useRef(null);
+  const isCustomerBill = billAudience === 'customer';
 
   if (!record) return null;
 
   const billDateParts = formatBillDateParts(record.job_date || record.purchase_date);
-  const lines = Array.isArray(record.items) ? record.items : (Array.isArray(record.purchase_items) ? record.purchase_items : []);
+  const rawLines = Array.isArray(record.items) ? record.items : (Array.isArray(record.purchase_items) ? record.purchase_items : []);
+  const truncated = rawLines.length > PRESS_BILL_MAX_LINES;
+  const lines = truncated ? rawLines.slice(0, PRESS_BILL_MAX_LINES) : rawLines;
+
+  const thStyle = { border: '1px solid #0047AB', padding: '5px 5px', textAlign: 'center', fontSize: '9px', lineHeight: 1.2 };
+  const tdStyle = { border: '1px solid #ddd', padding: '4px 5px', textAlign: 'center', fontSize: '9px', lineHeight: 1.25 };
+  const tdTextRtl = { ...tdStyle, textAlign: 'right' };
+  const thNarrow = { ...thStyle, width: '48px', padding: '4px 2px' };
+  /** Making / rate column needs a bit more room for “AFN …” and per-meter text. */
+  const thMaking = { ...thStyle, width: '76px', minWidth: '72px', padding: '5px 4px' };
+  const tdMaking = { ...tdStyle, width: '76px', minWidth: '72px', padding: '4px 4px' };
+  const billGrandTotal = parseFloat(record.total_price || record.cost || 0);
+  const billProfit = rawLines.reduce((sum, line) => {
+    const q = parseLineNum(line.qty ?? line.job_qty);
+    const mk = parseLineNum(line.making_unit_price ?? line.making_price);
+    const sl = parseLineNum(line.selling_unit_price ?? line.selling_price);
+    const sub = parseLineNum(line.line_total);
+    if (sl > 0 && q > 0) return sum + q * (sl - mk);
+    return sum + (sub - q * mk);
+  }, 0);
 
   const handlePrint = () => {
     if (!billRef.current) return;
     const printContents = billRef.current.innerHTML;
     const originalContents = document.body.innerHTML;
-    document.body.innerHTML = `<div class="printable-bill">${printContents}</div>`;
+    document.body.innerHTML = printContents;
     window.print();
     document.body.innerHTML = originalContents;
     window.location.reload();
@@ -35,116 +90,167 @@ const PrintablePressBill = ({ record }) => {
           <PrinterIcon className="h-4 w-4" /> {t('printing.printBill')}
         </button>
       </div>
-      <div ref={billRef} className="printable-bill bg-white shadow-lg mx-auto" style={{ width: '210mm', minHeight: '297mm', padding: 0 }}>
-        <div className="flex items-stretch" style={{ height: '100px' }}>
+      <div
+        ref={billRef}
+        className="printable-bill bg-white shadow-lg mx-auto press-bill-a4"
+        style={{ width: '210mm', maxWidth: '100%', minHeight: '297mm', padding: 0, boxSizing: 'border-box' }}
+      >
+        <style>{`
+          .press-bill-table { font-size: 9px; }
+          .press-bill-a4 {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+          @media print {
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+            }
+            .no-print { display: none !important; }
+            body * { visibility: hidden; }
+            .printable-bill, .printable-bill * { visibility: visible; }
+            .printable-bill {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              right: 0 !important;
+              width: 100% !important;
+              max-width: none !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              background: #fff !important;
+            }
+            .press-bill-a4 .press-bill-table { font-size: 8.5px; }
+            .press-bill-a4 .press-bill-table th,
+            .press-bill-a4 .press-bill-table td { padding: 3px 4px !important; }
+            .press-bill-a4 .press-bill-table th.press-bill-making-col,
+            .press-bill-a4 .press-bill-table td.press-bill-making-col {
+              min-width: 70px !important;
+              padding-left: 5px !important;
+              padding-right: 5px !important;
+            }
+            @page { size: A4; margin: 0; }
+          }
+        `}</style>
+        <div className="flex items-stretch" style={{ height: '76px' }}>
           <div className="flex items-center justify-center" style={{ width: '35%', backgroundColor: '#0047AB', color: 'white' }}>
-            <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{t('printing.billTitle')}</div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{t('printing.billTitle')}</div>
           </div>
           <div className="flex items-center justify-center" style={{ width: '40%', backgroundColor: '#FFD700' }}>
-            <h1 style={{ fontSize: '26px', fontWeight: 'bold' }} dir="rtl">بیرق سازی افغان</h1>
+            <h1 style={{ fontSize: '19px', fontWeight: 'bold', margin: 0 }} dir="rtl">بیرق سازی افغان</h1>
           </div>
           <div className="flex items-center justify-center" style={{ width: '25%', backgroundColor: '#fff', position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 0, top: '30%', transform: 'translateY(-50%)', backgroundColor: '#0047AB', color: 'white', padding: '8px 16px', fontWeight: 'bold', clipPath: 'polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%)' }} dir="rtl">
+            <div style={{ position: 'absolute', left: 0, top: '30%', transform: 'translateY(-50%)', backgroundColor: '#0047AB', color: 'white', padding: '5px 12px', fontWeight: 'bold', fontSize: '11px', clipPath: 'polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%)' }} dir="rtl">
               {t('printing.billNumber')}
             </div>
-            <div style={{ position: 'absolute', bottom: '10px', right: '10px', fontWeight: 'bold', color: '#0047AB' }}>
+            <div style={{ position: 'absolute', bottom: '8px', right: '8px', fontWeight: 'bold', color: '#0047AB', fontSize: '12px' }}>
               #{record.bill_number || record.id}
             </div>
           </div>
         </div>
 
-        <div style={{ padding: '15px 20px', backgroundColor: '#f8f9fa' }} dir="rtl">
-          <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+        <div style={{ padding: '10px 16px', backgroundColor: '#f8f9fa' }} dir="rtl">
+          <div style={{ fontSize: '11px', marginBottom: '4px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
             <span style={{ fontWeight: 'bold' }}>{t('common.date')}:</span>
-            <span style={{ marginRight: '10px' }}>{billDateParts ? `${billDateParts.year}/${billDateParts.month}/${billDateParts.day}` : '-'}</span>
+            <span style={{ marginRight: '8px' }}>{billDateParts ? `${billDateParts.year}/${billDateParts.month}/${billDateParts.day}` : '-'}</span>
           </div>
-          <div style={{ fontSize: '14px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+          <div style={{ fontSize: '11px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
             <span style={{ fontWeight: 'bold' }}>{t('printing.printer')}:</span>
-            <span style={{ marginRight: '10px' }}>{record.printer_name || record.supplier_name || '-'}</span>
+            <span style={{ marginRight: '8px' }}>{record.printer_name || record.supplier_name || '-'}</span>
           </div>
         </div>
 
-        <div style={{ padding: '0 20px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+        <div style={{ padding: '0 14px' }}>
+        <table className="press-bill-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px', tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ backgroundColor: '#0047AB', color: 'white' }}>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '45px' }}>#</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'right' }} dir="rtl">{t('printing.flagName')}</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '90px' }} dir="rtl">{t('printing.size')}</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '70px' }} dir="rtl">{t('printing.qty')}</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '95px' }} dir="rtl">{t('printing.totalMeters')}</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '105px' }} dir="rtl">{t('printing.perMeterPrice')}</th>
-              <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '110px' }} dir="rtl">{t('printing.totalPrice')}</th>
+              <th style={{ ...thStyle, width: '22px' }}>#</th>
+              <th style={{ ...thStyle, textAlign: 'right', minWidth: '52px' }} dir="rtl">{t('printing.flagName')}</th>
+              <th style={thNarrow} dir="rtl">{t('printing.size')}</th>
+              <th style={thNarrow} dir="rtl">{t('printing.qty')}</th>
+              <th className="press-bill-making-col" style={thMaking} dir="rtl">{isCustomerBill ? t('printing.makingRateColumn') : t('printing.makingUnitPrice')}</th>
+              {!isCustomerBill ? (
+                <th style={thNarrow} dir="rtl">{t('printing.sellingUnitPrice')}</th>
+              ) : null}
+              <th style={thNarrow} dir="rtl">{t('printing.lineSubtotal')}</th>
             </tr>
           </thead>
           <tbody>
             {lines.map((line, idx) => {
-              const total = parseFloat(line.line_total || 0);
+              const sub = parseLineNum(line.line_total);
               const qtyVal = line.qty ?? line.job_qty;
               const qtyDisplay =
                 qtyVal != null && qtyVal !== '' ? formatNumberTrimZeros(qtyVal) : '-';
-              const metersDisplay =
-                line.total_meters != null && line.total_meters !== ''
-                  ? formatNumberTrimZeros(line.total_meters)
-                  : '-';
+              const slNum = parseLineNum(line.selling_unit_price ?? line.selling_price);
+              const sellingDisplay =
+                !isCustomerBill && slNum > 0
+                  ? `AFN ${formatNumberTrimZeros(slNum, '0')}`
+                  : (!isCustomerBill && parseLineNum(line.per_meter_price) > 0
+                    ? `AFN ${formatNumberTrimZeros(line.per_meter_price, '0')}`
+                    : null);
               return (
                 <tr key={`print-line-${idx}`} style={{ backgroundColor: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', color: '#0047AB', fontWeight: 'bold' }}>{idx + 1}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'right' }} dir="rtl">{line.flag_name || line.item_name || '-'}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center' }}>{line.size || line.flag_size || '-'}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center' }}>{qtyDisplay}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center' }}>{metersDisplay}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center' }}>
-                    AFN {formatNumberTrimZeros(line.per_meter_price || line.unit_cost || 0, '0')}
-                  </td>
-                  <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontWeight: 'bold' }}>
-                    AFN {formatNumberTrimZeros(total, '0')}
-                  </td>
+                  <td style={{ ...tdStyle, color: '#0047AB', fontWeight: 'bold' }}>{idx + 1}</td>
+                  <td style={{ ...tdTextRtl, wordBreak: 'break-word' }} dir="rtl">{line.flag_name || line.item_name || '-'}</td>
+                  <td style={tdStyle}>{line.size || line.flag_size || '-'}</td>
+                  <td style={tdStyle}>{qtyDisplay}</td>
+                  <td className="press-bill-making-col" style={tdMaking}>{formatMakingCell(line, t, isCustomerBill)}</td>
+                  {!isCustomerBill ? (
+                    <td style={tdStyle}>{sellingDisplay || '—'}</td>
+                  ) : null}
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>AFN {formatNumberTrimZeros(sub, '0')}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
+        {truncated ? (
+          <p style={{ fontSize: '9px', color: '#666', marginTop: '6px', textAlign: 'center' }} dir="ltr">
+            {t('printing.pressBillLinesTruncated', { shown: PRESS_BILL_MAX_LINES, total: rawLines.length })}
+          </p>
+        ) : null}
         </div>
 
-        <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between' }} dir="rtl">
-          <div style={{ border: '3px solid #0047AB', padding: '15px 35px', clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)' }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>{t('printing.totalPrice')}</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold', textAlign: 'center' }}>
-            {formatNumberTrimZeros(parseFloat(record.total_price || record.cost || 0), '0')}
+        <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }} dir="rtl">
+          <div style={{ border: '3px solid #0047AB', padding: '10px 20px', clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)' }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>{t('printing.grandTotal')}</div>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', textAlign: 'center' }}>
+              {formatNumberTrimZeros(billGrandTotal, '0')}
+            </div>
           </div>
-          </div>
-          <div style={{ minWidth: '220px' }}>
-            <div style={{ fontSize: '14px', marginBottom: '10px', borderBottom: '1px dotted #999', paddingBottom: '5px' }}>
+          {!isCustomerBill ? (
+            <div style={{ border: '3px solid #228B22', padding: '10px 20px', clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>{t('printing.totalProfit')}</div>
+              <div style={{ fontSize: '15px', fontWeight: 'bold', textAlign: 'center' }}>
+                {formatNumberTrimZeros(billProfit, '0')}
+              </div>
+            </div>
+          ) : null}
+          <div style={{ minWidth: '160px' }}>
+            <div style={{ fontSize: '11px', marginBottom: '6px', borderBottom: '1px dotted #999', paddingBottom: '4px' }}>
               <span style={{ fontWeight: 'bold' }}>{t('purchases.paid')}:</span>
-              <span style={{ marginRight: '10px' }}>{formatNumberTrimZeros(parseFloat(record.total_paid || 0), '0')}</span>
+              <span style={{ marginRight: '8px' }}>{formatNumberTrimZeros(parseFloat(record.total_paid || 0), '0')}</span>
             </div>
-            <div style={{ fontSize: '14px', borderBottom: '1px dotted #999', paddingBottom: '5px' }}>
+            <div style={{ fontSize: '11px', borderBottom: '1px dotted #999', paddingBottom: '4px' }}>
               <span style={{ fontWeight: 'bold' }}>{t('purchases.remaining')}:</span>
-              <span style={{ marginRight: '10px' }}>{formatNumberTrimZeros(parseFloat(record.remaining_amount || 0), '0')}</span>
+              <span style={{ marginRight: '8px' }}>{formatNumberTrimZeros(parseFloat(record.remaining_amount || 0), '0')}</span>
             </div>
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#FFD700', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '12px' }}>📞 {BILL_FOOTER.phones} &nbsp; | &nbsp; 📧 {BILL_FOOTER.email}</div>
-          <div style={{ backgroundColor: '#0047AB', color: 'white', padding: '6px 18px', fontSize: '11px', clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 15% 100%, 0 50%)' }} dir="rtl">
+        <div style={{ backgroundColor: '#FFD700', padding: '8px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '10px' }}>📞 {BILL_FOOTER.phones} &nbsp; | &nbsp; 📧 {BILL_FOOTER.email}</div>
+          <div style={{ backgroundColor: '#0047AB', color: 'white', padding: '5px 14px', fontSize: '9px', clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 15% 100%, 0 50%)' }} dir="rtl">
             آدرس: {BILL_FOOTER.address}
           </div>
         </div>
       </div>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body * { visibility: hidden; }
-          .printable-bill, .printable-bill * { visibility: visible; }
-          .printable-bill { position: absolute; left: 0; top: 0; width: 210mm !important; min-height: 297mm !important; box-shadow: none !important; }
-          @page { size: A4; margin: 0; }
-        }
-      `}</style>
     </div>
   );
 };
 
 export default PrintablePressBill;
-

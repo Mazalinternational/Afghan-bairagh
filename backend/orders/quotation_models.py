@@ -36,7 +36,17 @@ class QuotationItem(models.Model):
     quotation = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='quotation_items')
     item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='quotation_items', null=True, blank=True)
     quantity = models.PositiveIntegerField()
-    price_estimate = models.DecimalField(max_digits=10, decimal_places=2)
+    price_estimate = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text='Quoted sale price per unit (customer-facing)',
+    )
+    purchase_unit_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text='Internal purchase/cost per unit',
+    )
     flag_size = models.CharField(max_length=50, blank=True)
     quality_design_type = models.CharField(max_length=200, blank=True)
     manual_item_name = models.CharField(max_length=200, blank=True)

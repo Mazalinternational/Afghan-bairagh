@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Category, Item, StockTransaction, LowStockAlert, FlagDesignType
+from .purchase_cost import build_latest_supplier_unit_cost_by_item_id
 
 
 class FlagDesignTypeSerializer(serializers.ModelSerializer):
@@ -23,17 +24,30 @@ class ItemSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     is_low_stock = serializers.ReadOnlyField()
     flag_design_type_name = serializers.SerializerMethodField()
+    last_supplier_unit_cost = serializers.SerializerMethodField()
 
     class Meta:
         model = Item
         fields = [
             'id', 'name', 'sku', 'item_type', 'category', 'category_name',
-            'description', 'unit_price', 'cost_price', 'press_stock', 'home_stock',
+            'description', 'unit_price', 'cost_price', 'last_supplier_unit_cost',
+            'press_stock', 'home_stock',
             'current_stock', 'minimum_stock', 'flag_design_type', 'flag_design_type_name',
             'flag_size', 'size', 'is_low_stock', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['sku', 'current_stock']
-    
+        read_only_fields = ['sku', 'current_stock', 'last_supplier_unit_cost']
+
+    def _supplier_unit_cost_map(self):
+        cache = self.context.setdefault('_supplier_unit_cost_map', None)
+        if cache is None:
+            cache = build_latest_supplier_unit_cost_by_item_id()
+            self.context['_supplier_unit_cost_map'] = cache
+        return cache
+
+    def get_last_supplier_unit_cost(self, obj):
+        v = self._supplier_unit_cost_map().get(obj.id)
+        return v if v is not None else None
+
     def get_flag_design_type_name(self, obj):
         return obj.flag_design_type.name if obj.flag_design_type else None
 

@@ -25,6 +25,13 @@ class Order(models.Model):
     ]
 
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='orders')
+    manual_serial_no = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Manual order / ledger serial number',
+    )
     order_date = models.DateTimeField(auto_now_add=True, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending', db_index=True)
     total_estimated_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated total for the order")
@@ -113,7 +120,14 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items')
     item = models.ForeignKey(Item, on_delete=models.PROTECT, related_name='order_items', null=True, blank=True)
     quantity = models.PositiveIntegerField()
-    price_estimate = models.DecimalField(max_digits=10, decimal_places=2, help_text="Estimated price per unit")
+    price_estimate = models.DecimalField(max_digits=10, decimal_places=2, help_text="Selling price per unit (customer)")
+    purchase_unit_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Cost per unit at order time (internal)",
+    )
     stock_type = models.CharField(max_length=20, choices=STOCK_TYPE_CHOICES, default='press_stock')
     flag_size = models.CharField(max_length=50, blank=True)
     quality_design_type = models.CharField(max_length=100, blank=True)

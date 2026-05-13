@@ -314,6 +314,11 @@ const OrderDetails = () => {
             <p className="text-xs text-gray-600 dark:text-gray-400">
               {formatDate(order.order_date || order.created_at)}
             </p>
+            {(order.manual_serial_no || '').trim() !== '' && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                {t('customers.manualSerialNo')}: <span className="font-medium text-gray-800 dark:text-gray-200">{order.manual_serial_no}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -352,7 +357,7 @@ const OrderDetails = () => {
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.item_name || order.item?.name || '-'}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.flag_size || '-'}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.quantity || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(order.price_per_unit)}</td>
+                  <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(order.price_estimate ?? order.price_per_unit)}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(order.total_amount)}</td>
                 </tr>
               )}

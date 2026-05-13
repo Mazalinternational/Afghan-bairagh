@@ -1,19 +1,42 @@
 import axios from 'axios';
 import { getAccessToken } from '../utils/tokenStorage';
 
+/** Local `npm start` only — production builds prefer REACT_APP_API_URL from `.env.production`. */
+const DEV_API_FALLBACK = 'http://localhost:8000';
+
+/**
+ * Deployed API origin for afghanflags.com (no trailing slash, no `/api` suffix).
+ * Override with REACT_APP_API_URL at build time (e.g. `https://api.afghanflags.com`).
+ */
+export const PRODUCTION_API_ORIGIN = 'https://afghanflags.com';
+
 /**
  * Backend origin only (no trailing slash, no /api suffix).
- * If REACT_APP_API_URL is set to http://host/api, requests like /api/auth/... would become /api/api/auth/... (404).
+ * If REACT_APP_API_URL ends with `/api`, it is stripped so paths stay `/api/...` not `/api/api/...`.
  */
 function normalizeApiBaseUrl(raw) {
-  let base = (raw || 'http://localhost:8000').trim().replace(/\/+$/, '');
+  let base = (raw || DEV_API_FALLBACK).trim().replace(/\/+$/, '');
   if (/\/api$/i.test(base)) {
     base = base.replace(/\/api$/i, '');
   }
   return base;
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(process.env.REACT_APP_API_URL);
+export const API_BASE_URL = normalizeApiBaseUrl(
+  process.env.REACT_APP_API_URL ||
+    (process.env.NODE_ENV === 'production' ? PRODUCTION_API_ORIGIN : DEV_API_FALLBACK)
+);
+
+// CRA bakes env at `npm start` / `npm run build` — restart dev server after changing `.env`.
+if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+  // eslint-disable-next-line no-console
+  console.info(
+    '[api] API_BASE_URL =',
+    API_BASE_URL,
+    '| REACT_APP_API_URL =',
+    process.env.REACT_APP_API_URL ?? '(unset, using dev fallback or production branch above)'
+  );
+}
 
 // Create axios instance
 const api = axios.create({

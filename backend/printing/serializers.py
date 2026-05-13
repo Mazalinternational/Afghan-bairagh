@@ -12,7 +12,11 @@ class PrintingPrinterSerializer(serializers.ModelSerializer):
 class PrintingJobItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrintingJobItem
-        fields = ['id', 'flag_name', 'size', 'qty', 'total_meters', 'per_meter_price', 'line_total']
+        fields = [
+            'id', 'flag_name', 'size', 'qty',
+            'making_unit_price', 'selling_unit_price',
+            'total_meters', 'per_meter_price', 'line_total',
+        ]
 
 
 class PrintingPaymentSerializer(serializers.ModelSerializer):
@@ -46,18 +50,27 @@ class PrintingJobSerializer(serializers.ModelSerializer):
                 qty = Decimal(str(item.get('qty', '0')))
                 meters = Decimal(str(item.get('total_meters', '0')))
                 per_meter = Decimal(str(item.get('per_meter_price', '0')))
+                making = Decimal(str(item.get('making_unit_price', item.get('making_price', '0'))))
+                selling = Decimal(str(item.get('selling_unit_price', item.get('selling_price', '0'))))
             except (InvalidOperation, TypeError, ValueError):
                 raise serializers.ValidationError({'items': f'Row {idx + 1}: invalid number format.'})
 
-            if qty < 0 or meters < 0 or per_meter < 0:
+            if qty < 0 or meters < 0 or per_meter < 0 or making < 0 or selling < 0:
                 raise serializers.ValidationError({'items': f'Row {idx + 1}: values cannot be negative.'})
 
-            line_total = (meters * per_meter).quantize(Decimal('0.01'))
+            # Prefer qty × selling_unit_price when selling is set; else legacy meters × per_meter
+            if selling > 0 and qty > 0:
+                line_total = (qty * selling).quantize(Decimal('0.01'))
+            else:
+                line_total = (meters * per_meter).quantize(Decimal('0.01'))
+
             total += line_total
             normalized.append({
                 'flag_name': str(item.get('flag_name', '')).strip(),
                 'size': str(item.get('size', '')).strip(),
                 'qty': qty,
+                'making_unit_price': making,
+                'selling_unit_price': selling,
                 'total_meters': meters,
                 'per_meter_price': per_meter,
                 'line_total': line_total,

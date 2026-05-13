@@ -260,7 +260,12 @@ const PrintableQuotation = ({ order, customer }) => {
             <tbody>
               {displayItems.map((row, idx) => {
                 const qty = row.quantity || '';
-                const perPrice = row.price_estimate || row.price_per_unit || '';
+                const perPrice =
+                  row.price_estimate != null && row.price_estimate !== ''
+                    ? row.price_estimate
+                    : row.price_per_unit != null && row.price_per_unit !== ''
+                      ? row.price_per_unit
+                      : '';
                 const total = row.total || '';
                 const descBase = row.item_name || row.item?.name || '';
                 const design = (row.quality_design_type || '').trim();

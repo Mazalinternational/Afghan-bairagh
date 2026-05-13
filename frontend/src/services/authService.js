@@ -1,4 +1,4 @@
-import api from './api';
+import api, { API_BASE_URL } from './api';
 import {
   clearAuthTokens,
   getAccessToken,
@@ -6,11 +6,30 @@ import {
   setAccessToken,
 } from '../utils/tokenStorage';
 
+/** Normalize axios / thrown errors into a single user-facing string. */
+function formatAuthError(error, fallback) {
+  const d = error?.response?.data;
+  if (typeof d?.detail === 'string') return d.detail;
+  if (Array.isArray(d?.non_field_errors) && d.non_field_errors[0]) return String(d.non_field_errors[0]);
+  if (typeof d?.detail === 'object' && d.detail !== null) {
+    try {
+      return JSON.stringify(d.detail);
+    } catch {
+      return fallback;
+    }
+  }
+  if (error?.message && typeof error.message === 'string') return error.message;
+  if (!error?.response && error?.message === 'Network Error') {
+    return `Cannot reach API at ${API_BASE_URL}. Is the Django server running?`;
+  }
+  return fallback;
+}
+
 class AuthService {
   // Register user
   async register(userData) {
     try {
-      const response = await api.post('/auth/register/', {
+      const response = await api.post('/api/auth/register/', {
         username: userData.username,
         email: userData.email,
         password: userData.password,
@@ -27,10 +46,10 @@ class AuthService {
     } catch (error) {
       throw {
         success: false,
-        message: error.response?.data?.detail || 
-                error.response?.data?.username?.[0] ||
-                error.response?.data?.email?.[0] ||
-                'Registration failed. Please try again.',
+        message:
+          error.response?.data?.username?.[0] ||
+          error.response?.data?.email?.[0] ||
+          formatAuthError(error, 'Registration failed. Please try again.'),
       };
     }
   }
@@ -59,9 +78,10 @@ class AuthService {
         refreshToken: refresh,
       };
     } catch (error) {
+      clearAuthTokens();
       throw {
         success: false,
-        message: error.response?.data?.detail || 'Login failed. Please check your credentials.',
+        message: formatAuthError(error, 'Login failed. Please check your credentials.'),
       };
     }
   }

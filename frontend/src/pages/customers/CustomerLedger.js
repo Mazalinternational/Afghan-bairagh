@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/fallback';
 import { 
@@ -31,6 +31,10 @@ const CustomerLedger = () => {
   const [customer, setCustomer] = useState(null);
   const [orders, setOrders] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [directSales, setDirectSales] = useState([]);
+  const [salePayments, setSalePayments] = useState([]);
+  const [directSalePayments, setDirectSalePayments] = useState([]);
   const [balancePayments, setBalancePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,6 +114,56 @@ const CustomerLedger = () => {
       }
       setOrders(fetchedOrders);
 
+      let fetchedSales = [];
+      let fetchedDirectSales = [];
+      try {
+        const [salesRes, directRes] = await Promise.all([
+          api.get(`/api/sales/?customer=${id}`),
+          api.get(`/api/direct-sales/?customer=${id}`)
+        ]);
+        fetchedSales = Array.isArray(salesRes.data) ? salesRes.data : salesRes.data.results || [];
+        fetchedDirectSales = Array.isArray(directRes.data) ? directRes.data : directRes.data.results || [];
+      } catch (salesErr) {
+        console.error('Error fetching sales for ledger:', salesErr);
+      }
+      setSales(fetchedSales);
+      setDirectSales(fetchedDirectSales);
+
+      const saleIds = fetchedSales.map((s) => s.id);
+      const directSaleIds = fetchedDirectSales.map((d) => d.id);
+      try {
+        const [allSalePayRes, allDirectPayRes] = await Promise.all([
+          api.get('/api/sale-payments/'),
+          api.get('/api/direct-sale-payments/')
+        ]);
+        const allSalePayments = Array.isArray(allSalePayRes.data)
+          ? allSalePayRes.data
+          : allSalePayRes.data.results || [];
+        const allDirectPayments = Array.isArray(allDirectPayRes.data)
+          ? allDirectPayRes.data
+          : allDirectPayRes.data.results || [];
+        const custSalePayments = allSalePayments.filter((p) => {
+          const sid =
+            p.sale_id ??
+            (p.sale && typeof p.sale === 'object' ? p.sale.id : null) ??
+            (typeof p.sale === 'number' ? p.sale : null);
+          return sid && saleIds.includes(sid);
+        });
+        const custDirectPayments = allDirectPayments.filter((p) => {
+          const did =
+            p.direct_sale_id ??
+            (p.direct_sale && typeof p.direct_sale === 'object' ? p.direct_sale.id : null) ??
+            (typeof p.direct_sale === 'number' ? p.direct_sale : null);
+          return did && directSaleIds.includes(did);
+        });
+        setSalePayments(custSalePayments);
+        setDirectSalePayments(custDirectPayments);
+      } catch (payErr) {
+        console.error('Error fetching sale payments for ledger:', payErr);
+        setSalePayments([]);
+        setDirectSalePayments([]);
+      }
+
       const balanceRes = await api.get(`/api/customer-balance-payments/?customer=${id}`);
       const fetchedBalancePayments = Array.isArray(balanceRes.data)
         ? balanceRes.data
@@ -139,7 +193,10 @@ const CustomerLedger = () => {
           setPayments(customerPayments);
         } catch (err) {
           console.error('Error fetching payments:', err);
+          setPayments([]);
         }
+      } else {
+        setPayments([]);
       }
     } catch (err) {
       console.error('Error fetching customer data:', err);
@@ -311,14 +368,31 @@ const CustomerLedger = () => {
 
   const calculateTotal = () => {
     const totalOrders = orders.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
-    // For order payments, use amount_paid; fall back to amount for compatibility
-    const totalPaid = payments.reduce((sum, p) => {
+    const totalSales = sales.reduce(
+      (sum, s) => sum + (parseFloat(s.net_amount ?? s.total_amount) || 0),
+      0
+    );
+    const totalDirectSales = directSales.reduce(
+      (sum, d) => sum + (parseFloat(d.net_amount ?? d.total_amount) || 0),
+      0
+    );
+    const totalBilled = totalOrders + totalSales + totalDirectSales;
+
+    const orderPaid = payments.reduce((sum, p) => {
       const value = p.amount_paid ?? p.amount;
       return sum + (parseFloat(value) || 0);
     }, 0);
-    // Prevent negative due amount - if overpaid, show 0
-    const totalDue = Math.max(0, totalOrders - totalPaid);
-    return { totalOrders, totalPaid, totalDue };
+    const salePaid = salePayments.reduce(
+      (sum, p) => sum + (parseFloat(p.amount_paid ?? p.amount) || 0),
+      0
+    );
+    const directPaid = directSalePayments.reduce(
+      (sum, p) => sum + (parseFloat(p.amount_paid ?? p.amount) || 0),
+      0
+    );
+    const totalPaid = orderPaid + salePaid + directPaid;
+    const totalDue = Math.max(0, totalBilled - totalPaid);
+    return { totalOrders, totalSales, totalDirectSales, totalBilled, totalPaid, totalDue };
   };
 
   const handleViewOrder = (orderId) => {
@@ -555,9 +629,46 @@ const CustomerLedger = () => {
     }
   };
 
+  const ledgerRows = useMemo(() => {
+    const ts = (d) => {
+      const x = new Date(d);
+      return Number.isNaN(x.getTime()) ? 0 : x.getTime();
+    };
+    const rows = [];
+    orders.forEach((o) =>
+      rows.push({
+        kind: 'order',
+        key: `order-${o.id}`,
+        sort: ts(o.created_at || o.order_date),
+        entity: o
+      })
+    );
+    sales.forEach((s) =>
+      rows.push({
+        kind: 'sale',
+        key: `sale-${s.id}`,
+        sort: ts(s.created_at || s.sale_date),
+        entity: s
+      })
+    );
+    directSales.forEach((d) =>
+      rows.push({
+        kind: 'direct_sale',
+        key: `direct-${d.id}`,
+        sort: ts(d.created_at || d.sale_date),
+        entity: d
+      })
+    );
+    rows.sort((a, b) => b.sort - a.sort);
+    return rows;
+  }, [orders, sales, directSales]);
+
   const totals = calculateTotal();
-  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
-  const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(ledgerRows.length / itemsPerPage));
+  const paginatedLedgerRows = ledgerRows.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
   const balancePaymentsTotalPages = Math.max(
     1,
     Math.ceil(balancePayments.length / balancePaymentsPerPage)
@@ -614,7 +725,12 @@ const CustomerLedger = () => {
                     addToast(t('customers.ledger.pdfPluginError'), 'error');
                     return;
                   }
-                  exportCustomerToPDF(customer, orders, payments);
+                  exportCustomerToPDF(customer, orders, payments, {
+                    sales,
+                    directSales,
+                    salePayments,
+                    directSalePayments
+                  });
                 } catch (error) {
                   console.error('Error exporting PDF:', error);
                   addToast(`Failed to export PDF: ${error.message}`, 'error');
@@ -711,8 +827,8 @@ const CustomerLedger = () => {
         
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 px-2.5 py-2 rounded-lg shadow-sm border-l-4 border-blue-500 flex flex-col justify-center min-h-0">
           <div className="absolute -top-4 -right-4 w-14 h-14 bg-blue-700/25 dark:bg-blue-400/20 rounded-full pointer-events-none" />
-          <p className="text-[9px] font-semibold text-gray-900 dark:text-white mb-0.5 leading-tight">{t('customers.ledger.totalOrders')}</p>
-          <div className="text-base font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-tight">AFN {totals.totalOrders.toFixed(2)}</div>
+          <p className="text-[9px] font-semibold text-gray-900 dark:text-white mb-0.5 leading-tight">{t('customers.ledger.totalBilled')}</p>
+          <div className="text-base font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-tight">AFN {totals.totalBilled.toFixed(2)}</div>
         </div>
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 px-2.5 py-2 rounded-lg shadow-sm border-l-4 border-green-500 flex flex-col justify-center min-h-0">
           <div className="absolute -top-4 -right-4 w-14 h-14 bg-green-700/25 dark:bg-green-400/20 rounded-full pointer-events-none" />
@@ -726,16 +842,17 @@ const CustomerLedger = () => {
         </div>
       </div>
 
-      {/* Order History */}
+      {/* Orders, sales & direct sales (ledger) */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden border dark:border-gray-600">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('customers.ledger.orderHistory')}</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('customers.ledger.activityHistory')}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-gray-800 dark:bg-gray-700 text-white dark:text-gray-100">
               <tr>
-                <th className="px-3 py-2 text-left font-medium uppercase">{t('customers.ledger.orderId')}</th>
+                <th className="px-3 py-2 text-left font-medium uppercase">{t('customers.ledger.ref')}</th>
+                <th className="px-3 py-2 text-left font-medium uppercase">{t('customers.ledger.entryType')}</th>
                 <th className="px-3 py-2 text-left font-medium uppercase">{t('common.date')}</th>
                 <th className="px-3 py-2 text-left font-medium uppercase">{t('customers.ledger.items')}</th>
                 <th className="px-3 py-2 text-left font-medium uppercase">{t('common.total')}</th>
@@ -747,80 +864,313 @@ const CustomerLedger = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-gray-900 dark:text-gray-300">
-              {paginatedOrders.map((order) => {
-                // Filter payments for this order - handle both object and ID formats
-                const orderPayments = payments.filter(p => {
-                  const paymentOrderId = p.order_id || 
-                    (p.order && typeof p.order === 'object' ? p.order.id : null) ||
-                    (typeof p.order === 'number' ? p.order : null);
-                  return paymentOrderId === order.id;
-                });
-                const lastPayment = orderPayments.length > 0 
-                  ? orderPayments.sort((a, b) => new Date(b.payment_date || b.created_at) - new Date(a.payment_date || a.created_at))[0]
-                  : null;
-                
-                return (
-                  <React.Fragment key={order.id}>
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-3 py-2 font-medium">#{order.id}</td>
-                      <td className="px-3 py-2">{formatDate(order.created_at || order.order_date)}</td>
-                      <td className="px-3 py-2">{order.flag_size || 'N/A'} x {order.quantity}</td>
-                      <td className="px-3 py-2">AFN {(parseFloat(order.total_amount) || 0).toFixed(2)}</td>
-                      <td className="px-3 py-2 text-green-600 dark:text-green-400">
-                        AFN {(parseFloat(order.paid_amount) || (parseFloat(order.total_amount) - parseFloat(order.due_amount || order.due || 0))).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2 text-red-600 dark:text-red-400">
-                        AFN {Math.max(0, parseFloat(order.due_amount || order.due) || 0).toFixed(2)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          order.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                          order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' :
-                          'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {lastPayment
-                          ? `${formatDate(lastPayment.payment_date || lastPayment.created_at)} (AFN ${(parseFloat(lastPayment.amount_paid ?? lastPayment.amount) || 0).toFixed(2)})`
-                          : '-'}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
+              {ledgerRows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-3 py-6 text-center text-gray-500 dark:text-gray-400">
+                    {t('customers.ledger.noActivity')}
+                  </td>
+                </tr>
+              ) : null}
+              {paginatedLedgerRows.map((row) => {
+                if (row.kind === 'order') {
+                  const order = row.entity;
+                  const orderPayments = payments.filter((p) => {
+                    const paymentOrderId =
+                      p.order_id ||
+                      (p.order && typeof p.order === 'object' ? p.order.id : null) ||
+                      (typeof p.order === 'number' ? p.order : null);
+                    return paymentOrderId === order.id;
+                  });
+                  const lastPayment =
+                    orderPayments.length > 0
+                      ? orderPayments.sort(
+                          (a, b) =>
+                            new Date(b.payment_date || b.created_at) -
+                            new Date(a.payment_date || a.created_at)
+                        )[0]
+                      : null;
+
+                  return (
+                    <React.Fragment key={row.key}>
+                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-3 py-2 font-medium">#{order.id}</td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                            {t('customers.ledger.typeOrder')}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">{formatDate(order.created_at || order.order_date)}</td>
+                        <td className="px-3 py-2">
+                          {order.flag_size || 'N/A'} x {order.quantity}
+                        </td>
+                        <td className="px-3 py-2">AFN {(parseFloat(order.total_amount) || 0).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-green-600 dark:text-green-400">
+                          AFN{' '}
+                          {(
+                            parseFloat(order.paid_amount) ||
+                            parseFloat(order.total_amount) -
+                              parseFloat(order.due_amount || order.due || 0)
+                          ).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-red-600 dark:text-red-400">
+                          AFN {Math.max(0, parseFloat(order.due_amount || order.due) || 0).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              order.status === 'completed'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                : order.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            }`}
+                          >
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {lastPayment
+                            ? `${formatDate(lastPayment.payment_date || lastPayment.created_at)} (AFN ${(parseFloat(lastPayment.amount_paid ?? lastPayment.amount) || 0).toFixed(2)})`
+                            : '-'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleViewOrder(order.id)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                              title={t('customers.ledger.viewOrder')}
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePrintOrder(order.id)}
+                              className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                              title={t('customers.ledger.printBill')}
+                            >
+                              <PrinterIcon className="h-4 w-4" />
+                            </button>
+                            {(order.status || '').toLowerCase() === 'pending' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOrder(order)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                title={t('customers.ledger.cancelOrder')}
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {orderPayments
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            new Date(b.payment_date || b.created_at) -
+                            new Date(a.payment_date || a.created_at)
+                        )
+                        .map((payment, pIdx) => (
+                          <tr key={`order-${order.id}-payment-${payment.id || pIdx}`} className="bg-blue-50 dark:bg-blue-900/10">
+                            <td className="px-3 py-2 pl-8 text-xs text-blue-600 dark:text-blue-400" colSpan={4}>
+                              {t('customers.ledger.paymentLine', { n: pIdx + 1 })}
+                            </td>
+                            <td className="px-3 py-2 text-xs">-</td>
+                            <td className="px-3 py-2 text-xs text-green-600 dark:text-green-400 font-medium">
+                              AFN {(parseFloat(payment.amount_paid ?? payment.amount) || 0).toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-xs">-</td>
+                            <td className="px-3 py-2 text-xs">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                {t('customers.ledger.paymentKind')}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {formatDate(payment.payment_date || payment.created_at)}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditPaymentDialog(payment, 'order')}
+                                  className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                  title={t('common.edit')}
+                                >
+                                  <PencilIcon className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteOrderPayment(payment)}
+                                  className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title={t('common.delete')}
+                                >
+                                  <TrashIcon className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </React.Fragment>
+                  );
+                }
+
+                if (row.kind === 'sale') {
+                  const s = row.entity;
+                  const sPayments = salePayments.filter((p) => {
+                    const sid =
+                      p.sale_id ??
+                      (p.sale && typeof p.sale === 'object' ? p.sale.id : null) ??
+                      (typeof p.sale === 'number' ? p.sale : null);
+                    return sid === s.id;
+                  });
+                  const lastPayment =
+                    sPayments.length > 0
+                      ? sPayments.sort(
+                          (a, b) =>
+                            new Date(b.payment_date || b.created_at) -
+                            new Date(a.payment_date || a.created_at)
+                        )[0]
+                      : null;
+                  const net = parseFloat(s.net_amount ?? s.total_amount) || 0;
+                  const paid = parseFloat(s.total_paid) || 0;
+                  const due = Math.max(0, parseFloat(s.due) || 0);
+
+                  return (
+                    <React.Fragment key={row.key}>
+                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 bg-emerald-50/40 dark:bg-emerald-900/10">
+                        <td className="px-3 py-2 font-medium">S-{s.id}</td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                            {t('customers.ledger.typeSale')}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">{formatDate(s.created_at || s.sale_date)}</td>
+                        <td className="px-3 py-2">
+                          {s.item_count != null ? `${s.item_count} ${t('customers.ledger.itemsShort')}` : '—'}
+                        </td>
+                        <td className="px-3 py-2">AFN {net.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-green-600 dark:text-green-400">AFN {paid.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-red-600 dark:text-red-400">AFN {due.toFixed(2)}</td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                            {s.status || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {lastPayment
+                            ? `${formatDate(lastPayment.payment_date || lastPayment.created_at)} (AFN ${(parseFloat(lastPayment.amount_paid ?? lastPayment.amount) || 0).toFixed(2)})`
+                            : '-'}
+                        </td>
+                        <td className="px-3 py-2">
                           <button
-                            onClick={() => handleViewOrder(order.id)}
+                            type="button"
+                            onClick={() => navigate(`/sales/${s.id}`)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                            title={t('customers.ledger.viewOrder')}
+                            title={t('customers.ledger.viewSale')}
                           >
                             <EyeIcon className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={() => handlePrintOrder(order.id)}
-                            className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                            title={t('customers.ledger.printBill')}
-                          >
-                            <PrinterIcon className="h-4 w-4" />
-                          </button>
-                          {((order.status || '').toLowerCase() === 'pending') && (
-                            <button
-                              onClick={() => handleDeleteOrder(order)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                              title={t('customers.ledger.cancelOrder')}
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
+                        </td>
+                      </tr>
+                      {sPayments
+                        .slice()
+                        .sort(
+                          (a, b) =>
+                            new Date(b.payment_date || b.created_at) -
+                            new Date(a.payment_date || a.created_at)
+                        )
+                        .map((payment, pIdx) => (
+                          <tr key={`sale-${s.id}-payment-${payment.id || pIdx}`} className="bg-emerald-50/80 dark:bg-emerald-900/15">
+                            <td className="px-3 py-2 pl-8 text-xs text-emerald-700 dark:text-emerald-300" colSpan={4}>
+                              {t('customers.ledger.paymentLine', { n: pIdx + 1 })}
+                            </td>
+                            <td className="px-3 py-2 text-xs">-</td>
+                            <td className="px-3 py-2 text-xs text-green-600 dark:text-green-400 font-medium">
+                              AFN {(parseFloat(payment.amount_paid ?? payment.amount) || 0).toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-xs">-</td>
+                            <td className="px-3 py-2 text-xs">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">
+                                {t('customers.ledger.paymentKind')}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {formatDate(payment.payment_date || payment.created_at)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-400">—</td>
+                          </tr>
+                        ))}
+                    </React.Fragment>
+                  );
+                }
+
+                const d = row.entity;
+                const dPayments = directSalePayments.filter((p) => {
+                  const did =
+                    p.direct_sale_id ??
+                    (p.direct_sale && typeof p.direct_sale === 'object' ? p.direct_sale.id : null) ??
+                    (typeof p.direct_sale === 'number' ? p.direct_sale : null);
+                  return did === d.id;
+                });
+                const lastDPayment =
+                  dPayments.length > 0
+                    ? dPayments.sort(
+                        (a, b) =>
+                          new Date(b.payment_date || b.created_at) - new Date(a.payment_date || a.created_at)
+                      )[0]
+                    : null;
+                const netD = parseFloat(d.net_amount ?? d.total_amount) || 0;
+                const paidD = parseFloat(d.total_paid) || 0;
+                const dueD = Math.max(0, parseFloat(d.due) || 0);
+
+                return (
+                  <React.Fragment key={row.key}>
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 bg-amber-50/40 dark:bg-amber-900/10">
+                      <td className="px-3 py-2 font-medium">DS-{d.id}</td>
+                      <td className="px-3 py-2">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                          {t('customers.ledger.typeDirectSale')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">{formatDate(d.created_at || d.sale_date)}</td>
+                      <td className="px-3 py-2">
+                        {d.item_count != null ? `${d.item_count} ${t('customers.ledger.itemsShort')}` : '—'}
+                      </td>
+                      <td className="px-3 py-2">AFN {netD.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-green-600 dark:text-green-400">AFN {paidD.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-red-600 dark:text-red-400">AFN {dueD.toFixed(2)}</td>
+                      <td className="px-3 py-2">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                          {d.status || '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        {lastDPayment
+                          ? `${formatDate(lastDPayment.payment_date || lastDPayment.created_at)} (AFN ${(parseFloat(lastDPayment.amount_paid ?? lastDPayment.amount) || 0).toFixed(2)})`
+                          : '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/sales/direct/${d.id}`)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          title={t('customers.ledger.viewDirectSale')}
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
-                    {orderPayments
+                    {dPayments
                       .slice()
-                      .sort((a, b) => new Date(b.payment_date || b.created_at) - new Date(a.payment_date || a.created_at))
+                      .sort(
+                        (a, b) =>
+                          new Date(b.payment_date || b.created_at) - new Date(a.payment_date || a.created_at)
+                      )
                       .map((payment, pIdx) => (
-                        <tr key={`order-${order.id}-payment-${payment.id || pIdx}`} className="bg-blue-50 dark:bg-blue-900/10">
-                          <td className="px-3 py-2 pl-8 text-xs text-blue-600 dark:text-blue-400" colSpan="3">
-                            Payment #{pIdx + 1}
+                        <tr key={`direct-${d.id}-payment-${payment.id || pIdx}`} className="bg-amber-50/80 dark:bg-amber-900/15">
+                          <td className="px-3 py-2 pl-8 text-xs text-amber-800 dark:text-amber-200" colSpan={4}>
+                            {t('customers.ledger.paymentLine', { n: pIdx + 1 })}
                           </td>
                           <td className="px-3 py-2 text-xs">-</td>
                           <td className="px-3 py-2 text-xs text-green-600 dark:text-green-400 font-medium">
@@ -828,31 +1178,14 @@ const CustomerLedger = () => {
                           </td>
                           <td className="px-3 py-2 text-xs">-</td>
                           <td className="px-3 py-2 text-xs">
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                              Payment
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                              {t('customers.ledger.paymentKind')}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-xs">
                             {formatDate(payment.payment_date || payment.created_at)}
                           </td>
-                          <td className="px-3 py-2 text-xs">
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => openEditPaymentDialog(payment, 'order')}
-                                className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                                title="Edit payment"
-                              >
-                                <PencilIcon className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteOrderPayment(payment)}
-                                className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                                title="Delete payment"
-                              >
-                                <TrashIcon className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-400">—</td>
                         </tr>
                       ))}
                   </React.Fragment>
@@ -862,12 +1195,12 @@ const CustomerLedger = () => {
           </table>
         </div>
 
-        {orders.length > 0 && (
+        {ledgerRows.length > 0 && (
           <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <div className="text-xs text-gray-600 dark:text-gray-400">
               {t('customers.ledger.showing')}{' '}
               {(currentPage - 1) * itemsPerPage + 1} {t('customers.ledger.to')}{' '}
-              {Math.min(currentPage * itemsPerPage, orders.length)} {t('customers.ledger.of')} {orders.length} (
+              {Math.min(currentPage * itemsPerPage, ledgerRows.length)} {t('customers.ledger.of')} {ledgerRows.length} (
               {itemsPerPage} {t('customers.ledger.perPage')})
             </div>
             <div className="flex items-center gap-2">

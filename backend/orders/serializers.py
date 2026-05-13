@@ -11,7 +11,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = [
-            'id', 'item', 'item_name', 'quantity', 'price_estimate',
+            'id', 'item', 'item_name', 'quantity', 'price_estimate', 'purchase_unit_cost',
             'stock_type', 'flag_size', 'quality_design_type', 'manual_item_name', 'total',
             'delivered_quantity', 'remaining_quantity'
         ]
@@ -52,7 +52,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'customer', 'customer_name', 'customer_phone',
-            'order_date', 'status', 'total_estimated_amount', 'notes',
+            'order_date', 'status', 'total_estimated_amount', 'notes', 'manual_serial_no',
             'order_items', 'item_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'order_date', 'total_estimated_amount', 'created_at', 'updated_at']
@@ -108,7 +108,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             'id', 'customer', 'customer_name', 'order_date', 'status',
             'total_estimated_amount', 'total_amount', 'total_paid', 'due_amount',
             'item_count', 'flag_size', 'quantity',
-            'delivered_quantity', 'remaining_quantity', 'order_items'
+            'delivered_quantity', 'remaining_quantity', 'order_items', 'manual_serial_no'
         ]
 
     def get_item_count(self, obj):

@@ -65,6 +65,11 @@ function inventoryFilterUsesFallback(allItems, productType) {
   return strict.length === 0;
 }
 
+function inventoryFieldStr(inv, field) {
+  if (!inv || inv[field] == null || inv[field] === '') return '';
+  return String(inv[field]);
+}
+
 /** Map API order line → CreateOrder local row (needs inventory catalog for FK lookup). */
 function mapApiOrderItemToLine(oi, itemsCatalog) {
   const rawItemId =
@@ -76,10 +81,16 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
   const isManual = Boolean(oi.manual_item_name);
   const priceStr = oi.price_estimate != null ? String(oi.price_estimate) : '';
   const qtyStr = oi.quantity != null ? String(oi.quantity) : '';
-  const purchase =
-    inv != null && inv.cost_price != null && inv.cost_price !== ''
-      ? String(inv.cost_price)
+  const persistedPurchase =
+    oi.purchase_unit_cost != null && oi.purchase_unit_cost !== ''
+      ? String(oi.purchase_unit_cost)
       : '';
+  const purchase =
+    persistedPurchase !== ''
+      ? persistedPurchase
+      : inv != null && inv.cost_price != null && inv.cost_price !== ''
+        ? String(inv.cost_price)
+        : '';
   const productType = inferProductTypeFromInventory(inv);
   const sizeFromApi = oi.flag_size || '';
   return {
@@ -156,6 +167,7 @@ const CreateOrder = () => {
   const [loadingEditOrder, setLoadingEditOrder] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [orderStatus, setOrderStatus] = useState('Pending');
+  const [orderManualSerial, setOrderManualSerial] = useState('');
 
   // Fetch customers and items on component mount
   useEffect(() => {
@@ -306,6 +318,7 @@ const CreateOrder = () => {
 
         setOrderNotes(order.notes || '');
         setOrderStatus(order.status || 'Pending');
+        setOrderManualSerial(order.manual_serial_no || '');
 
         const lines = (order.order_items || []).map((oi) => mapApiOrderItemToLine(oi, items));
         if (lines.length > 0) {
@@ -368,11 +381,14 @@ const CreateOrder = () => {
   const buildOrderItemsPayload = () =>
     orderItems
       .map((oi) => {
+        const purchaseParsed = parseLocaleFloat(oi.purchase_price);
+        const purchase_unit_cost = Number.isNaN(purchaseParsed) ? null : purchaseParsed;
         if (oi.isManual) {
           return {
             item: null,
             quantity: parseLocaleInt(oi.quantity),
             price_estimate: parseLocaleFloat(oi.price_per_unit),
+            purchase_unit_cost,
             stock_type: 'press_stock',
             flag_size: oi.product_type === 'flag' ? oi.flag_size : oi.flag_stand_type,
             quality_design_type: oi.quality_design_type || '',
@@ -383,6 +399,7 @@ const CreateOrder = () => {
           item: oi.item?.id,
           quantity: parseLocaleInt(oi.quantity),
           price_estimate: parseLocaleFloat(oi.price_per_unit),
+          purchase_unit_cost,
           stock_type: oi.stock_type || 'press_stock',
           flag_size: oi.product_type === 'flag' ? oi.flag_size : oi.flag_stand_type,
           quality_design_type: oi.quality_design_type || ''
@@ -442,8 +459,8 @@ const CreateOrder = () => {
         ...next[index],
         itemId: val,
         item: selectedItem,
-        purchase_price: selectedItem ? (selectedItem.cost_price ?? next[index].purchase_price) : next[index].purchase_price,
-        price_per_unit: selectedItem ? (selectedItem.unit_price ?? next[index].price_per_unit) : next[index].price_per_unit
+        purchase_price: selectedItem ? inventoryFieldStr(selectedItem, 'cost_price') : next[index].purchase_price,
+        price_per_unit: selectedItem ? inventoryFieldStr(selectedItem, 'unit_price') : next[index].price_per_unit
       };
       return next;
     });
@@ -534,6 +551,7 @@ const CreateOrder = () => {
         customer: formData.customer?.id,
         notes: orderNotes,
         status: orderStatus,
+        manual_serial_no: orderManualSerial.trim(),
         order_items: buildOrderItemsPayload()
       });
       navigate(`/orders/${editOrderId}`, {
@@ -618,6 +636,7 @@ const CreateOrder = () => {
       const orderData = {
         customer: customerId,
         notes: '',
+        manual_serial_no: orderManualSerial.trim(),
         order_items: orderItemsPayload
       };
 
@@ -698,9 +717,9 @@ const CreateOrder = () => {
                 <div className="text-right">
                   <p className="text-xs text-gray-600 dark:text-gray-400">{t('orders.headerTotal')}</p>
                   <p className="text-lg font-bold text-gray-900 dark:text-white">AFN {totalAmount.toFixed(2)}</p>
-                  {calculateTotalProfit() > 0 && (
-                    <p className="text-xs text-green-600 dark:text-green-400">{t('common.profit')}: AFN {calculateTotalProfit().toFixed(2)}</p>
-                  )}
+                  <p className={`text-xs ${calculateTotalProfit() >= 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    {t('common.profit')}: AFN {calculateTotalProfit().toFixed(2)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -856,6 +875,19 @@ const CreateOrder = () => {
                   <p className="mt-1 text-[10px] sm:text-xs text-red-600 dark:text-red-400">{errors.customer}</p>
                 )}
               </div>
+            </div>
+
+            <div className="max-w-md">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('customers.manualSerialNo')}
+              </label>
+              <input
+                type="text"
+                value={orderManualSerial}
+                onChange={(e) => setOrderManualSerial(e.target.value)}
+                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-200"
+                placeholder={t('customers.manualSerialNo')}
+              />
             </div>
 
             {/* Order Items */}
@@ -1168,14 +1200,6 @@ const CreateOrder = () => {
                           AFN {calculateItemTotal(item).toFixed(2)}
                         </span>
                       </div>
-                      {calculateItemProfit(item) > 0 && (
-                        <div>
-                          <span className="text-xs text-gray-600 dark:text-gray-400">{t('common.profit')}: </span>
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                            AFN {calculateItemProfit(item).toFixed(2)}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   )}
                     </div>
@@ -1229,12 +1253,10 @@ const CreateOrder = () => {
                   <span className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('orders.totalAmountLabel')}</span>
                   <span className="text-lg font-bold text-blue-900 dark:text-blue-100">AFN {totalAmount.toFixed(2)}</span>
                 </div>
-                {calculateTotalProfit() > 0 && (
-                  <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700">
-                    <span className="text-sm font-medium text-green-700 dark:text-green-300">{t('orders.totalProfitLabel')}</span>
-                    <span className="text-lg font-bold text-green-700 dark:text-green-300">AFN {calculateTotalProfit().toFixed(2)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700">
+                  <span className="text-sm font-medium text-green-700 dark:text-green-300">{t('orders.totalProfitLabel')}</span>
+                  <span className={`text-lg font-bold ${calculateTotalProfit() >= 0 ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'}`}>AFN {calculateTotalProfit().toFixed(2)}</span>
+                </div>
               </div>
             )}
 

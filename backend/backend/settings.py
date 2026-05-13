@@ -10,26 +10,53 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
+from typing import List
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
+def _env_bool(key: str, default: bool = False) -> bool:
+    val = os.environ.get(key)
+    if val is None:
+        return default
+    return val.strip().lower() in ('1', 'true', 'yes', 'on')
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-^+meok6l)&fa$j#!ijv^tl178!o10al1$69kge*wpeu89qpg%@'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+def _split_csv(key: str, default: str = '') -> List[str]:
+    raw = os.environ.get(key, default).strip()
+    if not raw:
+        return []
+    return [x.strip() for x in raw.split(',') if x.strip()]
 
-ALLOWED_HOSTS = ['*']
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
+# --- Local vs production (nothing is "commented out" — behavior follows DEBUG) ---
+# Local:  Do not set DJANGO_DEBUG, or set DJANGO_DEBUG=True  → DEBUG=True, ALLOWED_HOSTS=['*'],
+#         CORS/CSRF include localhost (React npm start on :3000, etc.).
+# Server: Set DJANGO_DEBUG=False and DJANGO_SECRET_KEY in the environment → production defaults
+#         for afghanflags.com (see backend/.env.example). Override hosts/CORS with DJANGO_* vars.
+
+# Quick-start development settings — load production values from environment (see backend/.env.example)
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-^+meok6l)&fa$j#!ijv^tl178!o10al1$69kge*wpeu89qpg%@',
+)
+
+DEBUG = _env_bool('DJANGO_DEBUG', True)
+
+_allowed = _split_csv('DJANGO_ALLOWED_HOSTS')
+if _allowed:
+    ALLOWED_HOSTS = _allowed
+elif DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = ['afghanflags.com', 'www.afghanflags.com', 'api.afghanflags.com']
+
+# CORS: local dev origins + optional DJANGO_CORS_ALLOWED_ORIGINS (e.g. https://afghanflags.com)
+_CORS_DEV = [
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
@@ -37,6 +64,16 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5500',
     'http://127.0.0.1:3000',
 ]
+_CORS_PROD_DEFAULT = [
+    'https://afghanflags.com',
+    'https://www.afghanflags.com',
+    'https://api.afghanflags.com',
+]
+_cors_extra = _split_csv('DJANGO_CORS_ALLOWED_ORIGINS')
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = _CORS_DEV + _cors_extra
+else:
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_CORS_PROD_DEFAULT + _cors_extra))
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -105,17 +142,34 @@ MIDDLEWARE = [
     'core.middleware.AuditLogMiddleware',
 ]
 
-CSRF_TRUSTED_ORIGINS = [
+_CSRF_DEV = [
     'http://localhost:3000',
     'http://localhost:3002',
     'http://localhost:5500',
     'http://127.0.0.1:5500',
     'http://127.0.0.1:3000',
 ]
+_CSRF_PROD_DEFAULT = [
+    'https://afghanflags.com',
+    'https://www.afghanflags.com',
+    'https://api.afghanflags.com',
+]
+_csrf_extra = _split_csv('DJANGO_CSRF_TRUSTED_ORIGINS')
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS = _CSRF_DEV + _csrf_extra
+else:
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_CSRF_PROD_DEFAULT + _csrf_extra))
 
 CSRF_EXEMPT_VIEWS = ['expenses']
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
+
+# HTTPS (set DJANGO_BEHIND_PROXY=1 when nginx terminates SSL)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    if _env_bool('DJANGO_SECURE_SSL_REDIRECT', True):
+        SECURE_SSL_REDIRECT = True
 
 ROOT_URLCONF = 'backend.urls'
 

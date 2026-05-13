@@ -6,15 +6,79 @@ from django.db.models import Sum, Count, Q, F, Case, When, DecimalField, Max, Av
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta
-from orders.models import Order, Payment as OrderPayment
+from orders.models import Order, OrderItem, Payment as OrderPayment
 from customers.models import Customer, CustomerBalancePayment
 from inventory.models import Item, LowStockAlert
 from purchases.models import Supplier, Purchase, Payment as SupplierPayment
 from expenses.models import Expense
 from employees.models import Employee, SalaryPayment
-from sales.models import Sale, SalePayment
+from sales.models import Sale, SaleItem, SalePayment
 from sales.direct_sales_models import DirectSale
 from bank.models import BankTransaction
+
+
+def _dec_money(v):
+    """Normalize DB aggregates / numbers to Decimal for financial math."""
+    if v is None:
+        return Decimal('0')
+    if isinstance(v, Decimal):
+        return v
+    return Decimal(str(v))
+
+
+def _inventory_sales_cogs_for_period(start_datetime, end_datetime):
+    """
+    COGS for stock-based (Sale) invoices in the period: sum(qty * unit_cost).
+    Unit cost matches the sales UI: item.cost_price when set, else latest press purchase line unit_cost.
+    """
+    from inventory.purchase_cost import build_latest_supplier_unit_cost_by_item_id
+
+    supplier_unit = build_latest_supplier_unit_cost_by_item_id()
+    cogs = Decimal('0')
+    qs = SaleItem.objects.filter(
+        sale__sale_date__gte=start_datetime,
+        sale__sale_date__lte=end_datetime,
+        sale__status='Confirmed',
+    ).select_related('item')
+    for line in qs.iterator(chunk_size=500):
+        item = line.item
+        if item.cost_price is not None and item.cost_price > 0:
+            unit = _dec_money(item.cost_price)
+        else:
+            uc = supplier_unit.get(item.id) or 0
+            unit = _dec_money(uc) if uc else Decimal('0')
+        cogs += Decimal(line.quantity) * unit
+    return cogs
+
+
+def _delivered_order_cogs_for_period(start_datetime, end_datetime):
+    """
+    COGS for delivered orders in the period: sum(qty × unit cost).
+    Uses OrderItem.purchase_unit_cost when set; else item.cost_price; else latest press purchase unit_cost.
+    """
+    from inventory.purchase_cost import build_latest_supplier_unit_cost_by_item_id
+
+    supplier_unit = build_latest_supplier_unit_cost_by_item_id()
+    cogs = Decimal('0')
+    qs = OrderItem.objects.filter(
+        order__order_date__gte=start_datetime,
+        order__order_date__lte=end_datetime,
+        order__status='Delivered',
+    ).select_related('item')
+    for line in qs.iterator(chunk_size=500):
+        unit = Decimal('0')
+        if line.purchase_unit_cost is not None and line.purchase_unit_cost > 0:
+            unit = _dec_money(line.purchase_unit_cost)
+        elif line.item_id and line.item is not None:
+            it = line.item
+            if it.cost_price is not None and it.cost_price > 0:
+                unit = _dec_money(it.cost_price)
+            else:
+                uc = supplier_unit.get(it.id) or 0
+                if uc:
+                    unit = _dec_money(uc)
+        cogs += Decimal(line.quantity) * unit
+    return cogs
 
 
 class AdminDashboardView(APIView):
@@ -365,6 +429,16 @@ class AdminDashboardView(APIView):
 
             prev_total = previous_balance_payments.get('total') or 0
 
+            # Delivered orders: revenue minus COGS (same cost logic as stock sales where line cost not stored)
+            order_cogs = _delivered_order_cogs_for_period(start_datetime, end_datetime)
+            order_revenue_dec = _dec_money(order_revenue.get('total'))
+            order_profit_dec = order_revenue_dec - order_cogs
+
+            # Stock-based Sale invoices: COGS from line qty × (inventory cost_price or latest press purchase unit cost)
+            inventory_sales_cogs = _inventory_sales_cogs_for_period(start_datetime, end_datetime)
+            inventory_sales_revenue_dec = _dec_money(sale_revenue.get('total'))
+            inventory_sales_profit_dec = inventory_sales_revenue_dec - inventory_sales_cogs
+
             # For direct sales: revenue is the selling price, but profit calculation needs cost subtracted
             direct_sales_revenue = direct_sales.get('total') or 0
             direct_sales_cost = direct_sales.get('cost') or 0
@@ -394,6 +468,10 @@ class AdminDashboardView(APIView):
                 'previous_balance_payments_total': prev_total,
                 'previous_balance_payments_count': previous_balance_payments.get('count') or 0,
                 'income_deposited_to_bank': income_deposited_to_bank,
+                'order_cogs': order_cogs,
+                'order_profit': order_profit_dec,
+                'inventory_sales_cogs': inventory_sales_cogs,
+                'inventory_sales_profit': inventory_sales_profit_dec,
             }
             
             expense_summary = Expense.objects.filter(
@@ -408,22 +486,27 @@ class AdminDashboardView(APIView):
             total_expenses = expense_summary.get('total_expenses') or 0
             
             # Net profit calculation:
-            # - Orders/Sales revenue (full amount as these are from inventory)
-            # - Direct sales: only add PROFIT (revenue - cost already calculated)
-            # - Subtract expenses
-            # - Add previous balance payments (cash received)
-            # - Subtract income already moved to bank (user requested to deduct after deposit)
+            # - Delivered orders: profit (total_estimated_amount - line COGS), not full revenue as profit
+            # - Stock-based Sale: profit (net_amount - COGS)
+            # - Direct sales: stored profit
+            # - Subtract expenses; add previous balance payments; subtract income moved to bank
             net_profit = (
-                (order_revenue.get('total') or 0) +
-                (sale_revenue.get('total') or 0) +
-                direct_sales_profit +
-                prev_total -
-                total_expenses -
-                income_deposited_to_bank
+                order_profit_dec +
+                inventory_sales_profit_dec +
+                _dec_money(direct_sales_profit) +
+                _dec_money(prev_total) -
+                _dec_money(total_expenses) -
+                _dec_money(income_deposited_to_bank)
             )
             
-            # Gross profit = Total revenue - Direct sales cost - Expenses
-            gross_profit = total_revenue - direct_sales_cost - total_expenses
+            # Gross profit = Total revenue - order COGS - stock-sale COGS - direct sale cost - expenses
+            gross_profit = (
+                _dec_money(total_revenue) -
+                order_cogs -
+                inventory_sales_cogs -
+                _dec_money(direct_sales_cost) -
+                _dec_money(total_expenses)
+            )
             
             return {
                 'period': f"{start_datetime.date()} to {end_datetime.date()}",

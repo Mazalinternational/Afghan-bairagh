@@ -67,7 +67,7 @@ const PrintableBill = ({ order, customer }) => {
           flag_size: order.flag_size || '-',
           quality_design_type: order.quality_design_type || '',
           quantity: order.quantity || 0,
-          price_estimate: order.price_per_unit || order.price_per_unit || 0,
+          price_estimate: order.price_per_unit || order.price_estimate || 0,
           total: parseFloat(order.total_amount || order.total_estimated_amount || 0),
         },
       ];
@@ -234,7 +234,12 @@ const PrintableBill = ({ order, customer }) => {
             <tbody>
               {displayItems.map((row, idx) => {
                 const qty = row.quantity || '';
-                const perPrice = row.price_estimate || row.price_per_unit || '';
+                const perPrice =
+                  row.price_estimate != null && row.price_estimate !== ''
+                    ? row.price_estimate
+                    : row.price_per_unit != null && row.price_per_unit !== ''
+                      ? row.price_per_unit
+                      : '';
                 const total = row.total || '';
                 const desc = row.item_name || row.item?.name || '';
                 const flagSize = row.flag_size || '';

@@ -44,18 +44,26 @@ const CreateQuotation = () => {
           customer: quotation.customer,
           notes: quotation.notes || '',
           quotation_date: formatDateForInput(quotation.quotation_date) || formatDateForInput(quotation.created_at),
-          quotation_items: (quotation.quotation_items || []).map((item) => ({
-            item: item.item,
-            quantity: item.quantity,
-            price_estimate: item.price_estimate,
-            sale_price: item.price_estimate,
-            flag_size: item.flag_size || '',
-            quality_design_type: item.quality_design_type || '',
-            manual_item_name: item.manual_item_name || '',
-            useManual: !item.item,
-            itemSearch: item.item_name || '',
-            collapsed: false
-          }))
+          quotation_items: (quotation.quotation_items || []).map((item) => {
+            const purchaseStored =
+              item.purchase_unit_cost != null && Number(item.purchase_unit_cost) > 0
+                ? String(item.purchase_unit_cost)
+                : '';
+            const saleStored =
+              item.price_estimate != null ? String(item.price_estimate) : '';
+            return {
+              item: item.item,
+              quantity: item.quantity,
+              price_estimate: purchaseStored,
+              sale_price: saleStored,
+              flag_size: item.flag_size || '',
+              quality_design_type: item.quality_design_type || '',
+              manual_item_name: item.manual_item_name || '',
+              useManual: !item.item,
+              itemSearch: item.item_name || '',
+              collapsed: false
+            };
+          })
         });
       } catch (error) {
         console.error('Error fetching quotation:', error);
@@ -127,6 +135,16 @@ const CreateQuotation = () => {
     newItems[index].item = item.id;
     newItems[index].itemSearch = item.name;
     newItems[index][`showDropdown_${index}`] = false;
+    const cost =
+      item.cost_price != null && item.cost_price !== ''
+        ? String(item.cost_price)
+        : '';
+    const sale =
+      item.unit_price != null && item.unit_price !== ''
+        ? String(item.unit_price)
+        : '';
+    newItems[index].price_estimate = cost;
+    newItems[index].sale_price = sale;
     setFormData({ ...formData, quotation_items: newItems });
   };
 
@@ -157,13 +175,14 @@ const CreateQuotation = () => {
             try {
               const newItem = await api.post('/api/inventory/', {
                 name: item.manual_item_name.trim(),
-                unit_price: item.price_estimate || 0,
+                unit_price: parseLocaleFloat(item.sale_price) || parseLocaleFloat(item.price_estimate) || 0,
                 quantity: 0
               });
               return {
                 item: newItem.data.id,
                 quantity: parseLocaleInt(item.quantity),
-                price_estimate: parseLocaleFloat(item.price_estimate),
+                price_estimate: parseLocaleFloat(item.sale_price) || 0,
+                purchase_unit_cost: parseLocaleFloat(item.price_estimate) || 0,
                 flag_size: item.flag_size,
                 quality_design_type: item.quality_design_type,
                 manual_item_name: ''
@@ -173,7 +192,8 @@ const CreateQuotation = () => {
               return {
                 item: null,
                 quantity: parseLocaleInt(item.quantity),
-                price_estimate: parseLocaleFloat(item.price_estimate),
+                price_estimate: parseLocaleFloat(item.sale_price) || 0,
+                purchase_unit_cost: parseLocaleFloat(item.price_estimate) || 0,
                 flag_size: item.flag_size,
                 quality_design_type: item.quality_design_type,
                 manual_item_name: item.manual_item_name
@@ -183,7 +203,8 @@ const CreateQuotation = () => {
           return {
             item: item.item || null,
             quantity: parseLocaleInt(item.quantity),
-            price_estimate: parseLocaleFloat(item.price_estimate),
+            price_estimate: parseLocaleFloat(item.sale_price) || 0,
+            purchase_unit_cost: parseLocaleFloat(item.price_estimate) || 0,
             flag_size: item.flag_size,
             quality_design_type: item.quality_design_type,
             manual_item_name: item.useManual ? item.manual_item_name : ''
@@ -264,6 +285,15 @@ const CreateQuotation = () => {
 
   const getSaleUnitPrice = (item) => {
     return parseLocaleFloat(item.sale_price) || 0;
+  };
+
+  const calculateQuotationTotalProfit = () => {
+    return formData.quotation_items.reduce((sum, item) => {
+      const q = parseLocaleFloat(item.quantity) || 0;
+      const purchase = parseLocaleFloat(item.price_estimate) || 0;
+      const sale = getSaleUnitPrice(item);
+      return sum + q * (sale - purchase);
+    }, 0);
   };
 
   return (
@@ -366,9 +396,9 @@ const CreateQuotation = () => {
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {t('quotations.item')} {index + 1}: {getItemDisplayName(item)}
                     </span>
-                    {item.quantity && item.price_estimate && (
+                    {item.quantity && getSaleUnitPrice(item) > 0 && (
                       <span className="text-xs text-gray-600 dark:text-gray-400">
-                        (Qty: {item.quantity} × AFN {item.price_estimate} = AFN {(parseLocaleFloat(item.quantity) * parseLocaleFloat(item.price_estimate)).toFixed(2)})
+                        (Qty: {item.quantity} × AFN {getSaleUnitPrice(item).toFixed(2)} = AFN {(parseLocaleFloat(item.quantity) * getSaleUnitPrice(item)).toFixed(2)})
                       </span>
                     )}
                   </div>
@@ -513,13 +543,7 @@ const CreateQuotation = () => {
                           {t('quotations.purchaseSubtotal')}: AFN {(parseLocaleFloat(item.quantity) * parseLocaleFloat(item.price_estimate)).toFixed(2)}
                         </p>
                         <p className="text-xs text-green-700 dark:text-green-300 font-semibold mt-1">
-                          {t('quotations.salePriceWithProfit')}: AFN {getSaleUnitPrice(item).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-green-700 dark:text-green-300 font-semibold">
                           {t('quotations.saleSubtotal')}: AFN {(parseLocaleFloat(item.quantity) * getSaleUnitPrice(item)).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-purple-700 dark:text-purple-300 font-semibold">
-                          {t('sales.profit')}: AFN {((parseLocaleFloat(item.quantity) * getSaleUnitPrice(item)) - (parseLocaleFloat(item.quantity) * parseLocaleFloat(item.price_estimate))).toFixed(2)}
                         </p>
                       </div>
                     )}
@@ -536,6 +560,14 @@ const CreateQuotation = () => {
             {t('quotations.addItem')}
           </button>
         </div>
+
+        {formData.quotation_items.length > 0 && (
+          <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+            <p className="text-sm font-semibold text-purple-800 dark:text-purple-200">
+              {t('orders.totalProfitLabel')}: AFN {calculateQuotationTotalProfit().toFixed(2)}
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('quotations.quotationDateLabel')}</label>

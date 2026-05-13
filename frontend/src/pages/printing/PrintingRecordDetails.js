@@ -52,7 +52,7 @@ const PrintingRecordDetails = () => {
         <button onClick={() => navigate('/printing')} className="btn-form-red text-xs flex items-center gap-1">
           <ArrowLeftIcon className="h-4 w-4" /> {t('common.back')}
         </button>
-        <PrintablePressBill record={record} />
+        <PrintablePressBill record={record} billAudience="customer" />
       </div>
     </div>
   );

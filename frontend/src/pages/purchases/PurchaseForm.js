@@ -205,7 +205,7 @@ const PurchaseForm = () => {
         item_name: purchaseItems.length === 1 ? purchaseItems[0].item_name : `Multiple items (${purchaseItems.length})`,
         quantity: Math.max(1, Math.round(purchaseItems.reduce((sum, line) => sum + parseFloat(line.quantity || 0), 0))),
         cost: totalPrice.toFixed(2),
-        is_for_press: false,
+        is_for_press: true,
         description: formData.description,
         reference: formData.reference,
         item: purchaseItems.length === 1 && purchaseItems[0].item ? purchaseItems[0].item : null,

@@ -64,6 +64,18 @@ class PrintingJobItem(models.Model):
     flag_name = models.CharField(max_length=200)
     size = models.CharField(max_length=100, blank=True)
     qty = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text='Cost / making price per unit (AFN)',
+    )
+    selling_unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text='Selling price per unit (AFN); subtotal = qty × selling when set',
+    )
     total_meters = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     per_meter_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)

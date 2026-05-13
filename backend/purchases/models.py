@@ -6,6 +6,13 @@ from inventory.models import Item, StockTransaction
 
 class Supplier(models.Model):
     name = models.CharField(max_length=200, db_index=True)
+    manual_serial_no = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Manual supplier / ledger serial number',
+    )
     contact_person = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=15, blank=True)
     phone_secondary = models.CharField(max_length=15, blank=True, default='')
@@ -118,36 +125,67 @@ class Purchase(models.Model):
         # Stock integration for press purchases
         # StockTransaction is the single source of truth for inventory changes
         # The StockTransaction.post_save signal will update Item.current_stock automatically
-        if is_new and self.is_for_press and self.item:
+        if is_new and self.is_for_press:
             try:
-                distributions = [
-                    d for d in (self.stock_distributions or [])
-                    if isinstance(d, dict)
-                    and d.get('stock_type') in ('press_stock', 'home_stock')
-                    and (int(d.get('quantity', 0)) or 0) > 0
-                ]
-                if distributions:
-                    for d in distributions:
-                        qty = int(d.get('quantity', 0))
-                        if qty <= 0:
-                            continue
+                lines = [x for x in (self.purchase_items or []) if isinstance(x, dict)]
+                created_from_lines = False
+                for line in lines:
+                    raw_id = line.get('item')
+                    if raw_id in (None, '', 0, '0'):
+                        continue
+                    try:
+                        item_id = int(raw_id)
+                    except (TypeError, ValueError):
+                        continue
+                    try:
+                        qty = int(round(float(line.get('quantity', 0) or 0)))
+                    except (TypeError, ValueError):
+                        qty = 0
+                    if qty <= 0:
+                        continue
+                    try:
+                        inv_item = Item.objects.get(pk=item_id)
+                    except Item.DoesNotExist:
+                        continue
+                    StockTransaction.objects.create(
+                        item=inv_item,
+                        transaction_type='IN',
+                        stock_type=self.stock_type,
+                        quantity=qty,
+                        reference_number=f'PUR-{self.id}',
+                        notes=f'Purchase from {self.supplier.name} - {line.get("item_name") or inv_item.name}',
+                    )
+                    created_from_lines = True
+
+                if not created_from_lines and self.item:
+                    distributions = [
+                        d for d in (self.stock_distributions or [])
+                        if isinstance(d, dict)
+                        and d.get('stock_type') in ('press_stock', 'home_stock')
+                        and (int(d.get('quantity', 0)) or 0) > 0
+                    ]
+                    if distributions:
+                        for d in distributions:
+                            qty = int(d.get('quantity', 0))
+                            if qty <= 0:
+                                continue
+                            StockTransaction.objects.create(
+                                item=self.item,
+                                transaction_type='IN',
+                                stock_type=d['stock_type'],
+                                quantity=qty,
+                                reference_number=f'PUR-{self.id}',
+                                notes=f'Purchase from {self.supplier.name} - {self.item_name}'
+                            )
+                    else:
                         StockTransaction.objects.create(
                             item=self.item,
                             transaction_type='IN',
-                            stock_type=d['stock_type'],
-                            quantity=qty,
+                            stock_type=self.stock_type,
+                            quantity=self.quantity,
                             reference_number=f'PUR-{self.id}',
                             notes=f'Purchase from {self.supplier.name} - {self.item_name}'
                         )
-                else:
-                    StockTransaction.objects.create(
-                        item=self.item,
-                        transaction_type='IN',
-                        stock_type=self.stock_type,
-                        quantity=self.quantity,
-                        reference_number=f'PUR-{self.id}',
-                        notes=f'Purchase from {self.supplier.name} - {self.item_name}'
-                    )
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)

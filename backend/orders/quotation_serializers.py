@@ -8,7 +8,8 @@ class QuotationItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuotationItem
         fields = [
-            'id', 'item', 'item_name', 'quantity', 'price_estimate', 'flag_size',
+            'id', 'item', 'item_name', 'quantity', 'price_estimate', 'purchase_unit_cost',
+            'flag_size',
             'quality_design_type', 'manual_item_name', 'total',
         ]
         read_only_fields = ['total']
