@@ -1032,6 +1032,23 @@ const translations = {
       itemNumber: "Item {{n}}",
       insufficientStockForItem:
         "Insufficient {{stockType}} on line {{itemNumber}}. Available: {{available}}.",
+      apiErrorInsufficientStockForItem:
+        "{{stockType}} is not enough for «{{itemName}}». Available: {{available}}, requested: {{required}}.",
+      apiErrorInsufficientStockSimple: "Not enough {{stockType}}. Available: {{available}}.",
+      apiErrorInsufficientStockAdjustment: "Not enough stock for this adjustment.",
+      apiErrorFailedToRevertStock:
+        "Stock could not be restored while saving this sale. Please try again or contact support.",
+      apiErrorSaleAlreadyConfirmed: "This sale is already confirmed.",
+      apiErrorCannotConfirmCancelledSale: "A cancelled sale cannot be confirmed.",
+      apiErrorSaleAlreadyCancelled: "This sale is already cancelled.",
+      apiErrorDirectSaleAlreadyConfirmed: "This direct sale is already confirmed.",
+      apiErrorPaymentMustBePositive: "Payment amount must be greater than zero.",
+      costPriceNonNegative: "Cost price cannot be negative.",
+      totalStockLabel: "Total stock",
+      stockLabelGeneric: "Stock",
+      quantityRequired: "Quantity must be greater than 0",
+      priceRequired: "Selling price must be greater than 0",
+      directSaleUpdatedAndConfirmed: "Direct sale updated and confirmed.",
       availableStock: "Available stock",
       customerNameRequired: "Customer name is required",
       customerCreatedSuccessfully: "Customer created successfully",
@@ -1049,6 +1066,8 @@ const translations = {
       createDirectSaleDraft: "Create Direct Sale (Draft)",
       confirmDirectSale: "Confirm & Generate Bill",
       failedToCreateDirectSale: "Failed to create direct sale",
+      failedToLoadDirectSales: "Failed to load direct sales",
+      failedToFetchCustomers: "Failed to fetch customers",
       directSaleCreated: "Direct sale created successfully",
       directSaleUpdated: "Direct sale updated successfully",
       directSaleConfirmed: "Direct sale confirmed successfully",
@@ -1450,7 +1469,8 @@ const translations = {
     },
     items: {
       name: "Item Name",
-      enterName: "Enter item name"
+      enterName: "Enter item name",
+      nameRequired: "Item name is required"
     },
     employees: {
       title: "Employees",
@@ -2878,6 +2898,23 @@ const translations = {
       itemNumber: "قلم {{n}}",
       insufficientStockForItem:
         "{{stockType}} کافی نیست (ردیف {{itemNumber}}). موجود: {{available}}.",
+      apiErrorInsufficientStockForItem:
+        "برای «{{itemName}}» {{stockType}} کافی نیست. موجود: {{available}}، درخواست: {{required}}.",
+      apiErrorInsufficientStockSimple: "{{stockType}} کافی نیست. موجود: {{available}}.",
+      apiErrorInsufficientStockAdjustment: "برای این تعدیل موجودی کافی نیست.",
+      apiErrorFailedToRevertStock:
+        "هنگام ذخیرهٔ فروش، برگرداندن موجودی انجام نشد. دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.",
+      apiErrorSaleAlreadyConfirmed: "این فروش قبلاً تأیید شده است.",
+      apiErrorCannotConfirmCancelledSale: "فروش لغوشده را نمی‌توان تأیید کرد.",
+      apiErrorSaleAlreadyCancelled: "این فروش قبلاً لغو شده است.",
+      apiErrorDirectSaleAlreadyConfirmed: "این فروش مستقیم قبلاً تأیید شده است.",
+      apiErrorPaymentMustBePositive: "مبلغ پرداخت باید بیشتر از صفر باشد.",
+      costPriceNonNegative: "قیمت خرید (بهای تمام‌شده) نمی‌تواند منفی باشد.",
+      totalStockLabel: "موجودی کل",
+      stockLabelGeneric: "موجودی",
+      quantityRequired: "تعداد باید بیشتر از صفر باشد",
+      priceRequired: "قیمت فروش باید بیشتر از صفر باشد",
+      directSaleUpdatedAndConfirmed: "فروش مستقیم به‌روز و تأیید شد.",
       availableStock: "موجودی",
       customerNameRequired: "نام مشتری الزامی است",
       customerCreatedSuccessfully: "مشتری با موفقیت ایجاد شد",
@@ -2896,6 +2933,8 @@ const translations = {
       createDirectSaleDraft: "ایجاد فروش مستقیم (مسوده)",
       confirmDirectSale: "تأیید فروش مستقیم",
       failedToCreateDirectSale: "ایجاد فروش مستقیم ناموفق بود",
+      failedToLoadDirectSales: "بارگذاری فروش‌های مستقیم ناموفق بود",
+      failedToFetchCustomers: "بارگذاری مشتریان ناموفق بود",
       directSaleCreated: "فروش مستقیم با موفقیت ایجاد شد",
       directSaleUpdated: "فروش مستقیم با موفقیت بهروز شد",
       directSaleConfirmed: "فروش مستقیم با موفقیت تأیید شد",
@@ -3277,7 +3316,8 @@ const translations = {
     },
     items: {
       name: "نام قلم",
-      enterName: "نام قلم را وارد کنید"
+      enterName: "نام قلم را وارد کنید",
+      nameRequired: "نام قلم الزامی است"
     },
     suppliers: {
       title: "تأمین‌کنندگان",

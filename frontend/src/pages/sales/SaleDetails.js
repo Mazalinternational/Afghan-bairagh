@@ -16,6 +16,7 @@ import { useToast } from '../../context/ToastContext';
 import PrintableBill from '../../components/orders/PrintableBill';
 import { formatCurrency } from '../../utils/currency';
 import LocalizedDateInput from '../../components/common/LocalizedDateInput';
+import { translateSaleApiError } from '../../utils/saleApiErrors';
 
 const SaleDetails = () => {
   const { id } = useParams();
@@ -68,11 +69,7 @@ const SaleDetails = () => {
       await fetchSaleDetails();
     } catch (error) {
       console.error('Error updating sale date:', error);
-      const msg =
-        error.response?.data?.detail ||
-        error.response?.data?.error ||
-        (typeof error.response?.data === 'string' ? error.response.data : null);
-      addToast(msg || t('sales.saleDateUpdateFailed'), 'error');
+      addToast(translateSaleApiError(error, t, 'sales.saleDateUpdateFailed'), 'error');
     } finally {
       setSaleDateSaving(false);
     }
@@ -112,7 +109,7 @@ const SaleDetails = () => {
         fetchSaleDetails();
       } catch (error) {
         console.error('Error confirming sale:', error);
-        addToast(error.response?.data?.error || t('sales.failedToConfirm'), 'error');
+        addToast(translateSaleApiError(error, t, 'sales.failedToConfirm'), 'error');
       }
     } else if (confirmAction === 'cancel') {
       try {
@@ -121,7 +118,7 @@ const SaleDetails = () => {
         fetchSaleDetails();
       } catch (error) {
         console.error('Error cancelling sale:', error);
-        addToast(error.response?.data?.error || t('sales.failedToCancel'), 'error');
+        addToast(translateSaleApiError(error, t, 'sales.failedToCancel'), 'error');
       }
     }
     
@@ -139,7 +136,7 @@ const SaleDetails = () => {
       fetchSaleDetails();
     } catch (error) {
       console.error('Error adding payment:', error);
-      addToast(error.response?.data?.error || t('sales.failedToAddPayment'), 'error');
+      addToast(translateSaleApiError(error, t, 'sales.failedToAddPayment'), 'error');
     }
   };
 

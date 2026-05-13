@@ -13,6 +13,7 @@ import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../
 import { effectivePurchaseUnitFromInventory } from '../../utils/saleItemCost';
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/common/PageHeader';
+import { translateSaleApiError } from '../../utils/saleApiErrors';
 
 const emptySaleItem = () => ({
   item: '',
@@ -200,7 +201,7 @@ const EditSale = () => {
       const row = saleItems[i];
 
       if (!row.item) {
-        addToast(`${t('sales.selectItem')} (Item ${i + 1})`, 'error');
+        addToast(`${t('sales.selectItem')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
 
@@ -270,7 +271,7 @@ const EditSale = () => {
       navigate(`/sales/${id}`);
     } catch (error) {
       console.error('Error updating sale:', error);
-      addToast(error.response?.data?.error || t('sales.editSaleUpdateFailed'), 'error');
+      addToast(translateSaleApiError(error, t, 'sales.editSaleUpdateFailed'), 'error');
     } finally {
       setLoading(false);
     }

@@ -14,6 +14,7 @@ import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/common/PageHeader';
 import LocalizedDateInput from '../../components/common/LocalizedDateInput';
+import { translateSaleApiError } from '../../utils/saleApiErrors';
 
 const toDateInputValue = (dateValue) => {
   if (!dateValue) return '';
@@ -70,7 +71,7 @@ const CreateDirectSale = () => {
       setCustomers(response.data);
     } catch (error) {
       console.error('Error fetching customers:', error);
-      addToast(t('sales.failedToFetchCustomers') || 'Failed to load customers', 'error');
+      addToast(t('sales.failedToFetchCustomers'), 'error');
     }
   };
 
@@ -100,7 +101,7 @@ const CreateDirectSale = () => {
       );
     } catch (error) {
       console.error('Error fetching direct sale:', error);
-      addToast(t('sales.failedToLoadDirectSales') || 'Failed to load direct sale', 'error');
+      addToast(t('sales.failedToLoadDirectSales'), 'error');
       navigate('/sales/direct');
     } finally {
       setLoading(false);
@@ -169,7 +170,7 @@ const CreateDirectSale = () => {
 
   const validateForm = () => {
     if (!formData.customer_name && !formData.customer) {
-      addToast(t('sales.customerNameRequired') || 'Please enter customer name', 'error');
+      addToast(t('sales.customerNameRequired'), 'error');
       return false;
     }
 
@@ -177,25 +178,25 @@ const CreateDirectSale = () => {
       const item = saleItems[i];
       
       if (!item.item_name) {
-        addToast(t('items.nameRequired') || `Please enter item name (Item ${i + 1})`, 'error');
+        addToast(`${t('items.nameRequired')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
       
       const q = parseLocaleFloat(item.quantity);
       if (!item.quantity || Number.isNaN(q) || q <= 0) {
-        addToast(t('sales.quantityRequired') || `Quantity must be greater than 0 (Item ${i + 1})`, 'error');
+        addToast(`${t('sales.quantityMustBeGreaterThanZero')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
       
       const sp = parseLocaleFloat(item.price_per_unit);
       if (!item.price_per_unit || Number.isNaN(sp) || sp <= 0) {
-        addToast(t('sales.priceRequired') || `Selling price must be greater than 0 (Item ${i + 1})`, 'error');
+        addToast(`${t('sales.priceMustBeGreaterThanZero')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
 
       const cp = parseLocaleFloat(item.cost_per_unit);
       if (item.cost_per_unit === '' || Number.isNaN(cp) || cp < 0) {
-        addToast(t('sales.costPriceNonNegative') || `Cost price cannot be negative (Item ${i + 1})`, 'error');
+        addToast(`${t('sales.costPriceNonNegative')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
     }
@@ -240,26 +241,23 @@ const CreateDirectSale = () => {
       if (confirm) {
         try {
           await api.post(`/api/direct-sales/${directSaleId}/confirm/`);
-          addToast(isEdit ? (t('sales.directSaleUpdatedAndConfirmed') || 'Direct sale updated and confirmed!') : t('sales.directSaleConfirmed'), 'success');
+          addToast(isEdit ? t('sales.directSaleUpdatedAndConfirmed') : t('sales.directSaleConfirmed'), 'success');
         } catch (confirmError) {
-          // If already confirmed, just show success for the update
-          if (confirmError.response?.data?.error?.includes('already confirmed')) {
-            addToast(isEdit ? (t('sales.directSaleUpdated') || 'Direct sale updated successfully!') : t('sales.directSaleCreated'), 'success');
+          const translated = translateSaleApiError(confirmError, t, 'sales.failedToCreateDirectSale');
+          if (translated === t('sales.apiErrorDirectSaleAlreadyConfirmed')) {
+            addToast(isEdit ? t('sales.directSaleUpdated') : t('sales.directSaleCreated'), 'success');
           } else {
-            throw confirmError;
+            addToast(translated, 'error');
           }
         }
       } else {
-        addToast(isEdit ? (t('sales.directSaleUpdated') || 'Direct sale updated successfully!') : t('sales.directSaleCreated'), 'success');
+        addToast(isEdit ? t('sales.directSaleUpdated') : t('sales.directSaleCreated'), 'success');
       }
       
       navigate('/sales/direct');
     } catch (error) {
       console.error('Error saving direct sale:', error);
-      addToast(
-        error.response?.data?.error || t('sales.failedToCreateDirectSale'),
-        'error'
-      );
+      addToast(translateSaleApiError(error, t, 'sales.failedToCreateDirectSale'), 'error');
     } finally {
       setLoading(false);
     }

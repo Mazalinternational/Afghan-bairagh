@@ -53,12 +53,12 @@ const DirectSalesList = () => {
 
     try {
       await api.delete(`/api/direct-sales/${showDeleteConfirm}/`);
-      addToast('Direct sale deleted successfully!', 'success');
+      addToast(t('directSales.deletedSuccess'), 'success');
       setShowDeleteConfirm(null);
       fetchDirectSales();
     } catch (error) {
       console.error('Error deleting direct sale:', error);
-      addToast('Failed to delete direct sale', 'error');
+      addToast(t('directSales.deleteFailed'), 'error');
     }
   };
 

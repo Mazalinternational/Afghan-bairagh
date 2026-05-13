@@ -13,6 +13,7 @@ import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../
 import { effectivePurchaseUnitFromInventory } from '../../utils/saleItemCost';
 import { useToast } from '../../context/ToastContext';
 import PageHeader from '../../components/common/PageHeader';
+import { translateSaleApiError } from '../../utils/saleApiErrors';
 
 const CreateSale = () => {
   const navigate = useNavigate();
@@ -190,7 +191,7 @@ const CreateSale = () => {
       const item = saleItems[i];
       
       if (!item.item) {
-        addToast(`${t('sales.selectItem')} (Item ${i + 1})`, 'error');
+        addToast(`${t('sales.selectItem')} (${t('sales.itemNumber', { n: i + 1 })})`, 'error');
         return false;
       }
       
@@ -266,7 +267,7 @@ const CreateSale = () => {
       navigate('/sales');
     } catch (error) {
       console.error('Error creating sale:', error);
-      addToast(error.response?.data?.error || t('sales.failedToCreate'), 'error');
+      addToast(translateSaleApiError(error, t, 'sales.failedToCreate'), 'error');
     } finally {
       setLoading(false);
     }
