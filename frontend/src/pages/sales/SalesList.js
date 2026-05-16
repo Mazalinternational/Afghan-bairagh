@@ -35,11 +35,6 @@ const SalesList = () => {
     setCurrentPage(1);
   }, [filter, searchQuery]);
 
-  useEffect(() => {
-    const tp = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
-    setCurrentPage((p) => Math.min(p, tp));
-  }, [filteredSales.length]);
-
   const fetchSales = async () => {
     try {
       setLoading(true);
@@ -112,6 +107,11 @@ const SalesList = () => {
     const idStr = String(sale.id || '');
     return name.includes(q) || idStr.includes(q);
   });
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
+    setCurrentPage((p) => Math.min(p, tp));
+  }, [filteredSales.length, itemsPerPage]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
