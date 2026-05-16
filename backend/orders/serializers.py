@@ -7,15 +7,28 @@ from inventory.models import Item
 class OrderItemSerializer(serializers.ModelSerializer):
     item_name = serializers.SerializerMethodField()
     remaining_quantity = serializers.SerializerMethodField()
-    
+    effective_purchase_unit_cost = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderItem
         fields = [
             'id', 'item', 'item_name', 'quantity', 'price_estimate', 'purchase_unit_cost',
+            'effective_purchase_unit_cost',
             'stock_type', 'flag_size', 'quality_design_type', 'manual_item_name', 'total',
             'delivered_quantity', 'remaining_quantity'
         ]
-        read_only_fields = ['id', 'total', 'delivered_quantity', 'remaining_quantity']
+        read_only_fields = ['id', 'total', 'delivered_quantity', 'remaining_quantity', 'effective_purchase_unit_cost']
+
+    def get_effective_purchase_unit_cost(self, obj):
+        """Snapshot cost on the line, or current inventory cost when snapshot was never saved."""
+        if obj.purchase_unit_cost is not None:
+            return obj.purchase_unit_cost
+        item = getattr(obj, 'item', None)
+        if item is not None:
+            cp = getattr(item, 'cost_price', None)
+            if cp is not None:
+                return cp
+        return None
 
     def get_item_name(self, obj):
         if obj.manual_item_name:

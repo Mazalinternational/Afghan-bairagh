@@ -23,6 +23,9 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { exportCustomerToPDF } from '../../utils/pdfExport';
 
+const paymentEntriesInclude = (list, e) =>
+  list.some((x) => x.kind === e.kind && x.id === e.id);
+
 const CustomerLedger = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -43,7 +46,8 @@ const CustomerLedger = () => {
   const balancePaymentsPerPage = 5;
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentData, setPaymentData] = useState({ 
-    selectedOrders: [],
+    /** @type {{ kind: 'order' | 'sale' | 'direct_sale', id: number }[]} */
+    selectedPaymentEntries: [],
     paymentMode: 'full', // 'full' or 'partial'
     amount: '', 
     payment_method: 'Cash', 
@@ -67,6 +71,7 @@ const CustomerLedger = () => {
     type: 'order',
     payment: null,
     amount: '',
+    payment_method: 'cash',
     title: '',
     originalAmount: null
   });
@@ -206,11 +211,83 @@ const CustomerLedger = () => {
     }
   };
 
+  const isCancelledStatus = (status) =>
+    String(status || '').toLowerCase() === 'cancelled';
+
+  const getOrderDue = (o) => parseFloat(o?.due_amount ?? o?.due ?? 0) || 0;
+  const getSaleDue = (s) => parseFloat(s?.due ?? 0) || 0;
+  /** Ledger list can lag `due`; net − paid matches invoice balance for payments */
+  const getDirectSaleDue = (d) => {
+    if (!d || isCancelledStatus(d.status)) return 0;
+    const net = parseFloat(d?.net_amount ?? d?.total_amount) || 0;
+    const paid = parseFloat(d?.total_paid ?? 0) || 0;
+    return Math.max(0, net - paid);
+  };
+
+  const getDueForPaymentEntry = (entry) => {
+    if (entry.kind === 'order') {
+      const o = orders.find((x) => x.id === entry.id);
+      return o ? getOrderDue(o) : 0;
+    }
+    if (entry.kind === 'sale') {
+      const s = sales.find((x) => x.id === entry.id);
+      return s ? getSaleDue(s) : 0;
+    }
+    if (entry.kind === 'direct_sale') {
+      const d = directSales.find((x) => x.id === entry.id);
+      return d ? getDirectSaleDue(d) : 0;
+    }
+    return 0;
+  };
+
+  const buildPayableRowsForPicker = () => {
+    const ord = orders.filter((o) => !isCancelledStatus(o.status));
+    const ordWithDue = ord.filter((o) => getOrderDue(o) > 0);
+    const saleRows = sales.filter((s) => !isCancelledStatus(s.status));
+    const saleWithDue = saleRows.filter((s) => getSaleDue(s) > 0);
+    const dirRows = directSales.filter((d) => !isCancelledStatus(d.status));
+    const dirWithDue = dirRows.filter((d) => getDirectSaleDue(d) > 0);
+
+    const displayOrders = ordWithDue.length > 0 ? ordWithDue : ord;
+    const displaySales = saleWithDue.length > 0 ? saleWithDue : saleRows;
+    const displayDirect = dirWithDue.length > 0 ? dirWithDue : dirRows;
+    return { displayOrders, displaySales, displayDirect };
+  };
+
+  const allSelectablePaymentEntries = () => {
+    const { displayOrders, displaySales, displayDirect } = buildPayableRowsForPicker();
+    const withDue = [];
+    displayOrders.forEach((o) => {
+      if (getOrderDue(o) > 0) withDue.push({ kind: 'order', id: o.id });
+    });
+    displaySales.forEach((s) => {
+      if (getSaleDue(s) > 0) withDue.push({ kind: 'sale', id: s.id });
+    });
+    displayDirect.forEach((d) => {
+      if (getDirectSaleDue(d) > 0) withDue.push({ kind: 'direct_sale', id: d.id });
+    });
+    if (withDue.length > 0) return withDue;
+    const fallback = [];
+    displayOrders.forEach((o) => fallback.push({ kind: 'order', id: o.id }));
+    displaySales.forEach((s) => fallback.push({ kind: 'sale', id: s.id }));
+    displayDirect.forEach((d) => fallback.push({ kind: 'direct_sale', id: d.id }));
+    return fallback;
+  };
+
+  const orderPaymentMethod = (ledgerLabel) =>
+    ledgerLabel.toLowerCase().replace(/\s+/g, '_');
+
+  const saleDirectPaymentMethod = (ledgerLabel) => {
+    const m = ledgerLabel.toLowerCase().replace(/\s+/g, '_');
+    if (m === 'cash') return 'cash';
+    return 'credit';
+  };
+
   const handlePayment = async (e) => {
     e.preventDefault();
     
-    if (paymentData.selectedOrders.length === 0) {
-      addToast(t('customers.ledger.selectOrder'), 'error');
+    if (paymentData.selectedPaymentEntries.length === 0) {
+      addToast(t('customers.ledger.selectInvoiceEntry'), 'error');
       return;
     }
 
@@ -221,72 +298,130 @@ const CustomerLedger = () => {
 
     setPaymentLoading(true);
     try {
-      // Convert payment method to lowercase to match backend choices
-      const paymentMethod = paymentData.payment_method.toLowerCase().replace(/\s+/g, '_');
-      
-      // Get selected orders with their due amounts
-      const selectedOrdersData = orders.filter(o => paymentData.selectedOrders.includes(o.id));
-      const totalDue = selectedOrdersData.reduce((sum, o) => {
-        return sum + (parseFloat(o.due_amount || o.due) || 0);
-      }, 0);
+      const orderPm = orderPaymentMethod(paymentData.payment_method);
+      const salePm = saleDirectPaymentMethod(paymentData.payment_method);
+
+      const selectedRows = paymentData.selectedPaymentEntries.map((entry) => ({
+        ...entry,
+        due: getDueForPaymentEntry(entry)
+      }));
+
+      const totalDue = selectedRows.reduce((sum, row) => sum + row.due, 0);
+
+      const postOrderPayment = async (orderId, amount, notesSuffix) => {
+        if (amount <= 0) return;
+        await api.post('/api/order-payments/', {
+          order: orderId,
+          amount_paid: amount,
+          payment_method: orderPm,
+          notes:
+            paymentData.reference ||
+            `${notesSuffix} — ${paymentData.payment_method}`
+        });
+      };
+
+      const postSalePayment = async (saleId, amount, notesSuffix) => {
+        if (amount <= 0) return;
+        await api.post(`/api/sales/${saleId}/add_payment/`, {
+          amount_paid: amount,
+          payment_method: salePm,
+          notes:
+            paymentData.reference ||
+            `${notesSuffix} — ${paymentData.payment_method}`
+        });
+      };
+
+      const postDirectSalePayment = async (directSaleId, amount, notesSuffix) => {
+        if (amount <= 0) return;
+        await api.post(`/api/direct-sales/${directSaleId}/add_payment/`, {
+          amount_paid: amount,
+          payment_method: salePm,
+          notes:
+            paymentData.reference ||
+            `${notesSuffix} — ${paymentData.payment_method}`
+        });
+      };
 
       if (paymentData.paymentMode === 'full') {
-        // Full payment for all selected orders
-        for (const order of selectedOrdersData) {
-          const dueAmount = parseFloat(order.due_amount || order.due) || 0;
-          if (dueAmount > 0) {
-            await api.post('/api/order-payments/', {
-              order: order.id,
-              amount_paid: dueAmount,
-              payment_method: paymentMethod,
-              notes: paymentData.reference || `Full payment for order #${order.id}`
-            });
+        for (const row of selectedRows) {
+          if (row.due <= 0) continue;
+          if (row.kind === 'order') {
+            await postOrderPayment(row.id, row.due, `Full payment for order #${row.id}`);
+          } else if (row.kind === 'sale') {
+            await postSalePayment(row.id, row.due, `Full payment for sale #${row.id}`);
+          } else if (row.kind === 'direct_sale') {
+            await postDirectSalePayment(row.id, row.due, `Full payment for direct sale #${row.id}`);
           }
         }
       } else {
-        // Partial payment - distribute amount across selected orders
         const paymentAmount = parseFloat(paymentData.amount);
-        
+
         if (paymentAmount > totalDue) {
-          addToast(t('customers.ledger.amountExceeds', { amount: paymentAmount.toFixed(2), total: totalDue.toFixed(2) }), 'error');
+          addToast(
+            t('customers.ledger.amountExceeds', {
+              amount: paymentAmount.toFixed(2),
+              total: totalDue.toFixed(2)
+            }),
+            'error'
+          );
           setPaymentLoading(false);
           return;
         }
 
-        // Distribute payment proportionally or equally
-        // For simplicity, distribute equally across orders with due amounts
-        const ordersWithDue = selectedOrdersData.filter(o => parseFloat(o.due_amount || o.due) > 0);
-        const amountPerOrder = paymentAmount / ordersWithDue.length;
-        
-        for (const order of ordersWithDue) {
-          const dueAmount = parseFloat(order.due_amount || order.due) || 0;
-          const payAmount = Math.min(amountPerOrder, dueAmount);
-          
-          if (payAmount > 0) {
-            await api.post('/api/order-payments/', {
-              order: order.id,
-              amount_paid: payAmount,
-              payment_method: paymentMethod,
-              notes: paymentData.reference || `Partial payment for order #${order.id}`
-            });
+        const rowsWithDue = selectedRows.filter((r) => r.due > 0);
+        const amountPerRow = rowsWithDue.length > 0 ? paymentAmount / rowsWithDue.length : 0;
+
+        for (const row of rowsWithDue) {
+          const payAmount = Math.min(amountPerRow, row.due);
+          if (row.kind === 'order') {
+            await postOrderPayment(row.id, payAmount, `Partial payment for order #${row.id}`);
+          } else if (row.kind === 'sale') {
+            await postSalePayment(row.id, payAmount, `Partial payment for sale #${row.id}`);
+          } else if (row.kind === 'direct_sale') {
+            await postDirectSalePayment(row.id, payAmount, `Partial payment for direct sale #${row.id}`);
           }
         }
       }
       
-      // Wait a moment for backend signals to process payment updates
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 800));
       
-      // Refresh all customer data including orders and payments
       await fetchCustomerData();
       
-      addToast(t('customers.ledger.paymentSuccess', { count: paymentData.selectedOrders.length }), 'success');
+      addToast(
+        t('customers.ledger.paymentSuccessInvoices', {
+          count: paymentData.selectedPaymentEntries.length
+        }),
+        'success'
+      );
       
-      // Show payment receipt
-      const receiptOrdersData = orders.filter(o => paymentData.selectedOrders.includes(o.id));
-      const totalPaidAmount = paymentData.paymentMode === 'full'
-        ? receiptOrdersData.reduce((sum, o) => sum + (parseFloat(o.due_amount || o.due) || 0), 0)
-        : parseFloat(paymentData.amount);
-      
+      const entriesSnapshot = [...paymentData.selectedPaymentEntries];
+      const snapshotRows = entriesSnapshot.map((entry) => ({
+        ...entry,
+        due: getDueForPaymentEntry(entry),
+        total:
+          entry.kind === 'order'
+            ? parseFloat(orders.find((o) => o.id === entry.id)?.total_amount) || 0
+            : entry.kind === 'sale'
+              ? parseFloat(sales.find((s) => s.id === entry.id)?.net_amount ??
+                  sales.find((s) => s.id === entry.id)?.total_amount) || 0
+              : parseFloat(directSales.find((d) => d.id === entry.id)?.net_amount ??
+                  directSales.find((d) => d.id === entry.id)?.total_amount) || 0
+      }));
+
+      const totalPaidAmount =
+        paymentData.paymentMode === 'full'
+          ? snapshotRows.reduce((sum, r) => sum + r.due, 0)
+          : parseFloat(paymentData.amount);
+
+      const receiptLabel =
+        entriesSnapshot.length === 1
+          ? entriesSnapshot[0].kind === 'order'
+            ? `Order #${entriesSnapshot[0].id}`
+            : entriesSnapshot[0].kind === 'sale'
+              ? `${t('customers.ledger.typeSale')} #${entriesSnapshot[0].id}`
+              : `${t('customers.ledger.typeDirectSale')} #${entriesSnapshot[0].id}`
+          : t('customers.ledger.paymentReceiptMultiple', { count: entriesSnapshot.length });
+
       setReceiptData({
         id: `PAY-${Date.now()}`,
         type: 'customer',
@@ -294,28 +429,32 @@ const CustomerLedger = () => {
         phone: customer.phone,
         payment_date: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        item_name: paymentData.selectedOrders.length > 1
-          ? `Payment for ${paymentData.selectedOrders.length} orders`
-          : `Order #${paymentData.selectedOrders[0]}`,
+        item_name: receiptLabel,
         payment_method: paymentData.payment_method,
         reference: paymentData.reference,
-        total_amount: receiptOrdersData.reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0),
-        previous_paid: receiptOrdersData.reduce((sum, o) => {
-          const total = parseFloat(o.total_amount) || 0;
-          const due = parseFloat(o.due_amount || o.due) || 0;
-          return sum + (total - due);
+        total_amount: snapshotRows.reduce((sum, r) => sum + r.total, 0),
+        previous_paid: snapshotRows.reduce((sum, r) => {
+          const prev = Math.max(0, r.total - r.due);
+          return sum + prev;
         }, 0),
         amount: totalPaidAmount,
         amount_paid: totalPaidAmount,
-        remaining_amount: paymentData.paymentMode === 'full'
-          ? 0
-          : receiptOrdersData.reduce((sum, o) => sum + (parseFloat(o.due_amount || o.due) || 0), 0) - totalPaidAmount,
+        remaining_amount:
+          paymentData.paymentMode === 'full'
+            ? 0
+            : Math.max(0, snapshotRows.reduce((sum, r) => sum + r.due, 0) - totalPaidAmount),
         notes: paymentData.reference
       });
       setShowPaymentReceipt(true);
       
       setShowPaymentForm(false);
-      setPaymentData({ selectedOrders: [], paymentMode: 'full', amount: '', payment_method: 'Cash', reference: '' });
+      setPaymentData({
+        selectedPaymentEntries: [],
+        paymentMode: 'full',
+        amount: '',
+        payment_method: 'Cash',
+        reference: ''
+      });
     } catch (err) {
       console.error('Error recording payment:', err);
       const errorMsg = err.response?.data?.detail || err.response?.data?.message || t('customers.ledger.paymentFailed');
@@ -325,42 +464,43 @@ const CustomerLedger = () => {
     }
   };
 
-  const handleOrderToggle = (orderId) => {
-    setPaymentData(prev => {
-      const newSelected = prev.selectedOrders.includes(orderId)
-        ? prev.selectedOrders.filter(id => id !== orderId)
-        : [...prev.selectedOrders, orderId];
-      
-      // If full payment mode, calculate total due for selected orders
+  const handlePaymentEntryToggle = (entry) => {
+    setPaymentData((prev) => {
+      const newSelected = paymentEntriesInclude(prev.selectedPaymentEntries, entry)
+        ? prev.selectedPaymentEntries.filter(
+            (x) => !(x.kind === entry.kind && x.id === entry.id)
+          )
+        : [...prev.selectedPaymentEntries, entry];
+
       let amount = prev.amount;
       if (prev.paymentMode === 'full') {
-        const selectedOrdersData = orders.filter(o => newSelected.includes(o.id));
-        amount = selectedOrdersData.reduce((sum, o) => {
-          return sum + (parseFloat(o.due_amount || o.due) || 0);
-        }, 0).toFixed(2);
+        const totalDueSel = newSelected.reduce(
+          (sum, e) => sum + getDueForPaymentEntry(e),
+          0
+        );
+        amount = totalDueSel.toFixed(2);
       }
-      
-      return { ...prev, selectedOrders: newSelected, amount };
+
+      return { ...prev, selectedPaymentEntries: newSelected, amount };
     });
   };
 
-  const handleSelectAllOrders = () => {
-    const ordersWithDue = orders.filter(o => parseFloat(o.due_amount || o.due) > 0);
-    const allOrderIds = ordersWithDue.length > 0 ? ordersWithDue.map(o => o.id) : orders.map(o => o.id);
-    
-    setPaymentData(prev => {
-      const isAllSelected = allOrderIds.every(id => prev.selectedOrders.includes(id));
-      const newSelected = isAllSelected ? [] : allOrderIds;
-      
-      // Calculate total due for selected orders
-      const selectedOrdersData = orders.filter(o => newSelected.includes(o.id));
-      const totalDue = selectedOrdersData.reduce((sum, o) => {
-        return sum + (parseFloat(o.due_amount || o.due) || 0);
-      }, 0);
-      
+  const handleSelectAllPayableEntries = () => {
+    const allIds = allSelectablePaymentEntries();
+    setPaymentData((prev) => {
+      const isAllSelected =
+        allIds.length > 0 &&
+        allIds.every((e) => paymentEntriesInclude(prev.selectedPaymentEntries, e));
+      const newSelected = isAllSelected ? [] : allIds;
+
+      const totalDue = newSelected.reduce(
+        (sum, e) => sum + getDueForPaymentEntry(e),
+        0
+      );
+
       return {
         ...prev,
-        selectedOrders: newSelected,
+        selectedPaymentEntries: newSelected,
         amount: prev.paymentMode === 'full' ? totalDue.toFixed(2) : prev.amount
       };
     });
@@ -528,16 +668,28 @@ const CustomerLedger = () => {
 
   const openEditPaymentDialog = (payment, type) => {
     const currentAmount = parseFloat(payment.amount_paid ?? payment.amount ?? 0);
+    const normalizePm = (p) => {
+      const m = String(p?.payment_method ?? 'cash').toLowerCase();
+      return ['cash', 'credit', 'partial'].includes(m) ? m : 'cash';
+    };
+    let title = t('sales.editPaymentTitle');
+    if (type === 'balance') {
+      title = t('customers.ledger.editPrevBalancePaymentAmountLabel');
+    } else if (type === 'order') {
+      title = t('customers.ledger.editOrderPaymentTitle');
+    } else if (type === 'sale') {
+      title = t('customers.ledger.editSalePaymentTitle');
+    } else if (type === 'direct_sale') {
+      title = t('customers.ledger.editDirectSalePaymentTitle');
+    }
     setPaymentEditDialog({
       open: true,
       type,
       payment,
       originalAmount: currentAmount,
       amount: Number.isFinite(currentAmount) ? currentAmount.toFixed(2) : '',
-      title:
-        type === 'balance'
-          ? t('customers.ledger.editPrevBalancePaymentAmountLabel')
-          : t('sales.editPaymentTitle')
+      payment_method: type === 'balance' ? 'cash' : normalizePm(payment),
+      title
     });
   };
 
@@ -547,6 +699,7 @@ const CustomerLedger = () => {
       type: 'order',
       payment: null,
       amount: '',
+      payment_method: 'cash',
       title: '',
       originalAmount: null
     });
@@ -555,16 +708,32 @@ const CustomerLedger = () => {
   const submitEditPaymentDialog = async () => {
     const amount = parseFloat(paymentEditDialog.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      addToast('Please enter a valid amount.', 'error');
+      addToast(t('customers.ledger.validAmount'), 'error');
       return;
     }
     try {
-      if (paymentEditDialog.type === 'balance') {
-        await api.patch(`/api/customer-balance-payments/${paymentEditDialog.payment.id}/`, { amount });
-        addToast('Previous balance payment updated successfully.', 'success');
-      } else {
-        await api.patch(`/api/order-payments/${paymentEditDialog.payment.id}/`, { amount_paid: amount });
-        addToast('Payment updated successfully.', 'success');
+      const { payment, type } = paymentEditDialog;
+      if (type === 'balance') {
+        await api.patch(`/api/customer-balance-payments/${payment.id}/`, { amount });
+        addToast(t('customers.ledger.balancePaymentUpdated'), 'success');
+      } else if (type === 'order') {
+        await api.patch(`/api/order-payments/${payment.id}/`, {
+          amount_paid: amount,
+          payment_method: paymentEditDialog.payment_method
+        });
+        addToast(t('customers.ledger.paymentUpdatedSuccess'), 'success');
+      } else if (type === 'sale') {
+        await api.patch(`/api/sale-payments/${payment.id}/`, {
+          amount_paid: amount,
+          payment_method: paymentEditDialog.payment_method
+        });
+        addToast(t('customers.ledger.paymentUpdatedSuccess'), 'success');
+      } else if (type === 'direct_sale') {
+        await api.patch(`/api/direct-sale-payments/${payment.id}/`, {
+          amount_paid: amount,
+          payment_method: paymentEditDialog.payment_method
+        });
+        addToast(t('customers.ledger.paymentUpdatedSuccess'), 'success');
       }
       closeEditPaymentDialog();
       fetchCustomerData();
@@ -572,29 +741,32 @@ const CustomerLedger = () => {
       console.error('Error updating payment:', err);
       addToast(
         paymentEditDialog.type === 'balance'
-          ? 'Failed to update previous balance payment.'
-          : 'Failed to update payment.',
+          ? t('customers.ledger.balancePaymentUpdateFailed')
+          : t('customers.ledger.paymentUpdateFailed'),
         'error'
       );
     }
   };
 
-  const handleDeleteOrderPayment = async (payment) => {
+  const openDeletePaymentDialog = (payment, type) => {
+    const titles = {
+      order: t('customers.ledger.deleteOrderPaymentConfirm'),
+      sale: t('customers.ledger.deleteSalePaymentConfirm'),
+      direct_sale: t('customers.ledger.deleteDirectSalePaymentConfirm'),
+      balance: t('customers.ledger.deletePrevBalancePaymentConfirm')
+    };
     setPaymentDeleteDialog({
       open: true,
-      type: 'order',
+      type,
       payment,
-      title: 'Are you sure you want to delete this payment?'
+      title: titles[type] || titles.order
     });
   };
 
-  const handleDeleteBalancePayment = async (payment) => {
-    setPaymentDeleteDialog({
-      open: true,
-      type: 'balance',
-      payment,
-      title: 'Are you sure you want to delete this previous balance payment?'
-    });
+  const handleDeleteOrderPayment = (payment) => openDeletePaymentDialog(payment, 'order');
+
+  const handleDeleteBalancePayment = (payment) => {
+    openDeletePaymentDialog(payment, 'balance');
   };
 
   const closeDeletePaymentDialog = () => {
@@ -608,22 +780,29 @@ const CustomerLedger = () => {
 
   const confirmDeletePaymentDialog = async () => {
     if (!paymentDeleteDialog.payment) return;
+    const { payment, type } = paymentDeleteDialog;
     try {
-      if (paymentDeleteDialog.type === 'balance') {
-        await api.delete(`/api/customer-balance-payments/${paymentDeleteDialog.payment.id}/`);
+      if (type === 'balance') {
+        await api.delete(`/api/customer-balance-payments/${payment.id}/`);
         addToast(t('customers.prevBalancePaymentDeletedRestored'), 'success');
+      } else if (type === 'sale') {
+        await api.delete(`/api/sale-payments/${payment.id}/`);
+        addToast(t('customers.ledger.paymentDeletedSuccess'), 'success');
+      } else if (type === 'direct_sale') {
+        await api.delete(`/api/direct-sale-payments/${payment.id}/`);
+        addToast(t('customers.ledger.paymentDeletedSuccess'), 'success');
       } else {
-        await api.delete(`/api/order-payments/${paymentDeleteDialog.payment.id}/`);
-        addToast('Payment deleted successfully.', 'success');
+        await api.delete(`/api/order-payments/${payment.id}/`);
+        addToast(t('customers.ledger.paymentDeletedSuccess'), 'success');
       }
       closeDeletePaymentDialog();
       fetchCustomerData();
     } catch (err) {
       console.error('Error deleting payment:', err);
       addToast(
-        paymentDeleteDialog.type === 'balance'
-          ? 'Failed to delete previous balance payment.'
-          : 'Failed to delete payment.',
+        type === 'balance'
+          ? t('customers.ledger.balancePaymentDeleteFailed')
+          : t('customers.ledger.paymentDeleteFailed'),
         'error'
       );
     }
@@ -893,7 +1072,14 @@ const CustomerLedger = () => {
                   return (
                     <React.Fragment key={row.key}>
                       <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-3 py-2 font-medium">#{order.id}</td>
+                        <td className="px-3 py-2 font-medium">
+                          <div>#{order.id}</div>
+                          {(order.manual_serial_no || '').trim() !== '' && (
+                            <div className="text-[10px] text-gray-500 dark:text-gray-400 font-normal mt-0.5">
+                              {t('customers.manualSerialNo')}: {order.manual_serial_no}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-3 py-2">
                           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
                             {t('customers.ledger.typeOrder')}
@@ -1098,7 +1284,26 @@ const CustomerLedger = () => {
                             <td className="px-3 py-2 text-xs">
                               {formatDate(payment.payment_date || payment.created_at)}
                             </td>
-                            <td className="px-3 py-2 text-xs text-gray-400">—</td>
+                            <td className="px-3 py-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditPaymentDialog(payment, 'sale')}
+                                  className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                  title={t('common.edit')}
+                                >
+                                  <PencilIcon className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeletePaymentDialog(payment, 'sale')}
+                                  className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                  title={t('common.delete')}
+                                >
+                                  <TrashIcon className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                     </React.Fragment>
@@ -1122,12 +1327,19 @@ const CustomerLedger = () => {
                     : null;
                 const netD = parseFloat(d.net_amount ?? d.total_amount) || 0;
                 const paidD = parseFloat(d.total_paid) || 0;
-                const dueD = Math.max(0, parseFloat(d.due) || 0);
+                const dueD = getDirectSaleDue(d);
 
                 return (
                   <React.Fragment key={row.key}>
                     <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 bg-amber-50/40 dark:bg-amber-900/10">
-                      <td className="px-3 py-2 font-medium">DS-{d.id}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <div>DS-{d.id}</div>
+                        {(d.manual_serial_no || '').trim() !== '' && (
+                          <div className="text-[10px] text-gray-500 dark:text-gray-400 font-normal mt-0.5">
+                            {t('customers.manualSerialNo')}: {d.manual_serial_no}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
                           {t('customers.ledger.typeDirectSale')}
@@ -1185,7 +1397,26 @@ const CustomerLedger = () => {
                           <td className="px-3 py-2 text-xs">
                             {formatDate(payment.payment_date || payment.created_at)}
                           </td>
-                          <td className="px-3 py-2 text-xs text-gray-400">—</td>
+                          <td className="px-3 py-2 text-xs">
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditPaymentDialog(payment, 'direct_sale')}
+                                className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                title={t('common.edit')}
+                              >
+                                <PencilIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openDeletePaymentDialog(payment, 'direct_sale')}
+                                className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                                title={t('common.delete')}
+                              >
+                                <TrashIcon className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                   </React.Fragment>
@@ -1363,11 +1594,11 @@ const CustomerLedger = () => {
                       type="radio"
                       value="full"
                       checked={paymentData.paymentMode === 'full'}
-                      onChange={(e) => {
-                        const selectedOrdersData = orders.filter(o => paymentData.selectedOrders.includes(o.id));
-                        const totalDue = selectedOrdersData.reduce((sum, o) => {
-                          return sum + (parseFloat(o.due_amount || o.due) || 0);
-                        }, 0);
+                      onChange={() => {
+                        const totalDue = paymentData.selectedPaymentEntries.reduce(
+                          (sum, e) => sum + getDueForPaymentEntry(e),
+                          0
+                        );
                         setPaymentData({
                           ...paymentData,
                           paymentMode: 'full',
@@ -1391,69 +1622,99 @@ const CustomerLedger = () => {
                 </div>
               </div>
 
-              {/* Order Selection */}
+              {/* Orders & sales with balance */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t('customers.ledger.selectOrders')} *</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t('customers.ledger.selectInvoices')} *</label>
                   <button
                     type="button"
-                    onClick={handleSelectAllOrders}
+                    onClick={handleSelectAllPayableEntries}
                     className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
                   >
                     {(() => {
-                      const ordersWithDue = orders.filter(o => parseFloat(o.due_amount || o.due) > 0);
-                      const allOrderIds = ordersWithDue.length > 0 ? ordersWithDue.map(o => o.id) : orders.map(o => o.id);
-                      const isAllSelected = allOrderIds.length > 0 && allOrderIds.every(id => paymentData.selectedOrders.includes(id));
+                      const allSelectable = allSelectablePaymentEntries();
+                      const isAllSelected =
+                        allSelectable.length > 0 &&
+                        allSelectable.every((e) =>
+                          paymentEntriesInclude(paymentData.selectedPaymentEntries, e)
+                        );
                       return isAllSelected ? t('customers.ledger.deselectAll') : t('customers.ledger.selectAll');
                     })()}
                   </button>
                 </div>
-                <div className="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 space-y-1.5">
+                <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 space-y-1.5">
                   {(() => {
-                    const ordersWithDue = orders.filter(o => parseFloat(o.due_amount || o.due) > 0);
-                    const list = ordersWithDue.length > 0 ? ordersWithDue : orders;
-                    return list.length === 0 ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">{t('customers.ledger.noOrdersAvailable')}</p>
+                    const { displayOrders, displaySales, displayDirect } = buildPayableRowsForPicker();
+                    const rows = [
+                      ...displayOrders.map((o) => ({
+                        kind: 'order',
+                        id: o.id,
+                        title: `${t('customers.ledger.typeOrder')} #${o.id}`,
+                        total: parseFloat(o.total_amount) || 0,
+                        due: getOrderDue(o)
+                      })),
+                      ...displaySales.map((s) => ({
+                        kind: 'sale',
+                        id: s.id,
+                        title: `${t('customers.ledger.typeSale')} #${s.id}`,
+                        total:
+                          parseFloat(s.net_amount ?? s.total_amount) || 0,
+                        due: getSaleDue(s)
+                      })),
+                      ...displayDirect.map((d) => ({
+                        kind: 'direct_sale',
+                        id: d.id,
+                        title: `${t('customers.ledger.typeDirectSale')} #${d.id}`,
+                        total:
+                          parseFloat(d.net_amount ?? d.total_amount) || 0,
+                        due: getDirectSaleDue(d)
+                      }))
+                    ];
+                    const entryForRow = (r) => ({ kind: r.kind, id: r.id });
+                    return rows.length === 0 ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+                        {t('customers.ledger.noOutstandingInvoices')}
+                      </p>
                     ) : (
-                      list.map(order => {
-                        const dueAmount = parseFloat(order.due_amount || order.due) || 0;
-                        return (
-                          <label
-                            key={order.id}
-                            className="flex items-center p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={paymentData.selectedOrders.includes(order.id)}
-                              onChange={() => handleOrderToggle(order.id)}
-                              className="mr-2 rounded border-gray-300 dark:border-gray-600"
-                            />
-                            <div className="flex-1">
-                              <div className="text-xs font-medium text-gray-900 dark:text-white">
-                                Order #{order.id}
-                              </div>
-                              <div className="text-[10px] text-gray-600 dark:text-gray-400">
-                                Total: AFN {(parseFloat(order.total_amount) || 0).toFixed(2)} | 
-                                Due: AFN {dueAmount.toFixed(2)}
-                              </div>
+                      rows.map((row) => (
+                        <label
+                          key={`${row.kind}-${row.id}`}
+                          className="flex items-center p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={paymentEntriesInclude(
+                              paymentData.selectedPaymentEntries,
+                              entryForRow(row)
+                            )}
+                            onChange={() => handlePaymentEntryToggle(entryForRow(row))}
+                            className="mr-2 rounded border-gray-300 dark:border-gray-600"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-gray-900 dark:text-white truncate">
+                              {row.title}
                             </div>
-                          </label>
-                        );
-                      })
+                            <div className="text-[10px] text-gray-600 dark:text-gray-400">
+                              {t('customers.ledger.total')}: AFN {row.total.toFixed(2)} |{' '}
+                              {t('customers.ledger.totalDueLabel')}: AFN {row.due.toFixed(2)}
+                            </div>
+                          </div>
+                        </label>
+                      ))
                     );
                   })()}
                 </div>
-                {paymentData.selectedOrders.length > 0 && (
+                {paymentData.selectedPaymentEntries.length > 0 && (
                   <p className="mt-1.5 text-[10px] text-gray-600 dark:text-gray-400">
-                    {t('customers.ledger.ordersSelected', { count: paymentData.selectedOrders.length })}
+                    {t('customers.ledger.invoicesSelected', {
+                      count: paymentData.selectedPaymentEntries.length
+                    })}
                     {paymentData.paymentMode === 'full' && (
                       <span className="ml-2 font-medium">
-                        | {t('customers.ledger.totalDueLabel')}: AFN {(() => {
-                          const selectedOrdersData = orders.filter(o => paymentData.selectedOrders.includes(o.id));
-                          return selectedOrdersData.reduce((sum, o) => {
-                            return sum + (parseFloat(o.due_amount || o.due) || 0);
-                          }, 0).toFixed(2);
-                        })()}
+                        | {t('customers.ledger.totalDueLabel')}: AFN{' '}
+                        {paymentData.selectedPaymentEntries
+                          .reduce((sum, e) => sum + getDueForPaymentEntry(e), 0)
+                          .toFixed(2)}
                       </span>
                     )}
                   </p>
@@ -1510,7 +1771,13 @@ const CustomerLedger = () => {
                   type="button"
                   onClick={() => {
                     setShowPaymentForm(false);
-                    setPaymentData({ selectedOrders: [], paymentMode: 'full', amount: '', payment_method: 'Cash', reference: '' });
+                    setPaymentData({
+                      selectedPaymentEntries: [],
+                      paymentMode: 'full',
+                      amount: '',
+                      payment_method: 'Cash',
+                      reference: ''
+                    });
                   }}
                   className="btn-form-red flex-1"
                 >
@@ -1743,6 +2010,24 @@ const CustomerLedger = () => {
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
+            {paymentEditDialog.type !== 'balance' && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('customers.ledger.paymentMethod')}
+                </label>
+                <select
+                  value={paymentEditDialog.payment_method}
+                  onChange={(e) =>
+                    setPaymentEditDialog((prev) => ({ ...prev, payment_method: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="cash">{t('directSales.cash')}</option>
+                  <option value="credit">{t('orders.payMethodCredit')}</option>
+                  <option value="partial">{t('orders.payMethodPartial')}</option>
+                </select>
+              </div>
+            )}
             {paymentEditDialog.type === 'balance' &&
               customer &&
               paymentEditDialog.originalAmount != null &&
@@ -1765,14 +2050,14 @@ const CustomerLedger = () => {
                 onClick={closeEditPaymentDialog}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={submitEditPaymentDialog}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                Update
+                {t('common.save')}
               </button>
             </div>
           </div>
@@ -1782,7 +2067,9 @@ const CustomerLedger = () => {
       {paymentDeleteDialog.open && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">Delete Payment</h3>
+            <h3 className="text-base font-semibold mb-3 text-gray-900 dark:text-white">
+              {t('customers.ledger.deletePaymentTitle')}
+            </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">{paymentDeleteDialog.title}</p>
             <div className="flex gap-3">
               <button
@@ -1790,14 +2077,14 @@ const CustomerLedger = () => {
                 onClick={closeDeletePaymentDialog}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={confirmDeletePaymentDialog}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

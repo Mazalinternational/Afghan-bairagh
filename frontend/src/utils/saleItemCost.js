@@ -33,3 +33,10 @@ export function effectivePurchaseUnitFromInventory(inv) {
 
   return { value: null, source: null, listUnitPrice: listOk };
 }
+
+/** String for order/sale line inputs — empty when no resolved unit cost. */
+export function purchaseUnitCostStringFromInventory(inv) {
+  const { value } = effectivePurchaseUnitFromInventory(inv);
+  if (value != null && Number.isFinite(value)) return String(value);
+  return '';
+}

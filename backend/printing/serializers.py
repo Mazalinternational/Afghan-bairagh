@@ -58,11 +58,13 @@ class PrintingJobSerializer(serializers.ModelSerializer):
             if qty < 0 or meters < 0 or per_meter < 0 or making < 0 or selling < 0:
                 raise serializers.ValidationError({'items': f'Row {idx + 1}: values cannot be negative.'})
 
-            # Prefer qty × selling_unit_price when selling is set; else legacy meters × per_meter
-            if selling > 0 and qty > 0:
-                line_total = (qty * selling).quantize(Decimal('0.01'))
-            else:
+            # Line total = press cost: qty × making_unit_price; legacy fallback meters × per_meter
+            if qty > 0 and making > 0:
+                line_total = (qty * making).quantize(Decimal('0.01'))
+            elif meters > 0 and per_meter > 0:
                 line_total = (meters * per_meter).quantize(Decimal('0.01'))
+            else:
+                line_total = Decimal('0.00')
 
             total += line_total
             normalized.append({

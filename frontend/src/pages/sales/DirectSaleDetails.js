@@ -39,9 +39,14 @@ const DirectSaleDetails = () => {
   };
 
   const handleAddPayment = async () => {
+    const amt = parseFloat(paymentAmount);
+    if (!paymentAmount.trim() || Number.isNaN(amt) || amt <= 0) {
+      addToast(t('sales.invalidPaymentAmount'), 'error');
+      return;
+    }
     try {
       await api.post(`/api/direct-sales/${id}/add_payment/`, {
-        amount_paid: parseFloat(paymentAmount),
+        amount_paid: amt,
         payment_method: paymentMethod,
         notes: paymentNotes
       });
@@ -134,6 +139,10 @@ const DirectSaleDetails = () => {
     );
   }
 
+  const netAmt = parseFloat(sale.net_amount) || 0;
+  const totalPaidAmt = parseFloat(sale.total_paid ?? 0) || 0;
+  const dueDisplay = Math.max(0, netAmt - totalPaidAmt);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900 dark:to-gray-900 p-2">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-blue-100 dark:border-gray-700 mx-2">
@@ -166,7 +175,7 @@ const DirectSaleDetails = () => {
                 <TrashIcon className="h-4 w-4" />
                 {t('common.delete')}
               </button>
-              {sale.payment_status !== 'Paid' && (
+              {sale.payment_status !== 'Paid' && dueDisplay > 0.005 && (
                 <button onClick={() => setShowPaymentModal(true)} className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs flex items-center gap-1">
                   <PlusIcon className="h-4 w-4" />
                   {t('directSales.addPayment')}
@@ -191,6 +200,12 @@ const DirectSaleDetails = () => {
                   <span className="text-gray-600 dark:text-gray-400">{t('directSales.date')}:</span>
                   <span className="font-medium">{formatDate(sale.sale_date)}</span>
                 </div>
+                {(sale.manual_serial_no || '').trim() !== '' && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">{t('customers.manualSerialNo')}:</span>
+                    <span className="font-medium">{sale.manual_serial_no}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -222,7 +237,7 @@ const DirectSaleDetails = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">{t('sales.totalsDue')}:</span>
                   <span className="font-medium text-red-600 dark:text-red-400">
-                    AFN {parseFloat(sale.due ?? 0).toFixed(2)}
+                    AFN {dueDisplay.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between bg-green-50 dark:bg-green-900/20 p-2 rounded">

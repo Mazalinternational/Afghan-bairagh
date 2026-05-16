@@ -116,15 +116,16 @@ const PrintingFormPage = () => {
     });
   };
 
+  /** Bill line total paid to press: qty × making price, or legacy meters × per-meter. */
   const calcLineSubtotal = (line) => {
     const qty = parseLocaleFloat(line.qty);
-    const selling = parseLocaleFloat(line.selling_unit_price);
+    const making = parseLocaleFloat(line.making_unit_price);
     const meters = parseLocaleFloat(line.total_meters);
     const perMeter = parseLocaleFloat(line.per_meter_price);
-    if (!Number.isNaN(selling) && selling > 0 && !Number.isNaN(qty) && qty > 0) {
-      return qty * selling;
+    if (!Number.isNaN(qty) && qty > 0 && !Number.isNaN(making) && making > 0) {
+      return qty * making;
     }
-    if (!Number.isNaN(meters) && !Number.isNaN(perMeter)) {
+    if (!Number.isNaN(meters) && meters > 0 && !Number.isNaN(perMeter) && perMeter >= 0) {
       return meters * perMeter;
     }
     return 0;
@@ -135,14 +136,10 @@ const PrintingFormPage = () => {
     const making = parseLocaleFloat(line.making_unit_price);
     const selling = parseLocaleFloat(line.selling_unit_price);
     if (Number.isNaN(qty) || qty <= 0) return 0;
-    if (!Number.isNaN(selling) && selling > 0 && !Number.isNaN(making)) {
-      return qty * (selling - making);
-    }
-    const sub = calcLineSubtotal(line);
-    if (!Number.isNaN(making) && making >= 0) {
-      return sub - qty * making;
-    }
-    return 0;
+    if (!Number.isNaN(selling) && selling <= 0) return 0;
+    const cost =
+      !Number.isNaN(making) && making > 0 ? qty * making : calcLineSubtotal(line);
+    return qty * selling - cost;
   };
 
   const grandSellingTotal = useMemo(

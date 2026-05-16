@@ -28,7 +28,7 @@ const OrdersList = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const itemsPerPage = 5;
   const [selectedOrders, setSelectedOrders] = useState(new Set());
   
   const [filters, setFilters] = useState({
@@ -68,6 +68,11 @@ const OrdersList = () => {
   useEffect(() => {
     applyFilters();
   }, [filters, allOrders, sortConfig]);
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
+    setCurrentPage((p) => Math.min(p, tp));
+  }, [filteredOrders.length]);
 
   const applyFilters = () => {
     let filtered = [...allOrders];
@@ -298,7 +303,7 @@ const OrdersList = () => {
     });
   };
 
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -614,8 +619,17 @@ const OrdersList = () => {
                                   <span className="text-gray-900 dark:text-white">
                                     {item.manual_item_name || item.item_name || item.item?.name || 'N/A'}
                                   </span>
-                                  <span className="text-gray-600 dark:text-gray-400">
-                                    Qty: {item.quantity} × AFN {parseFloat(item.price_estimate || 0).toFixed(2)} = AFN {(item.quantity * parseFloat(item.price_estimate || 0)).toFixed(2)}
+                                  <span className="text-gray-600 dark:text-gray-400 text-right">
+                                    Qty: {item.quantity} × AFN {parseFloat(item.price_estimate || 0).toFixed(2)} = AFN{' '}
+                                    {(item.quantity * parseFloat(item.price_estimate || 0)).toFixed(2)}
+                                    {(item.effective_purchase_unit_cost ?? item.purchase_unit_cost) != null &&
+                                    String(item.effective_purchase_unit_cost ?? item.purchase_unit_cost).trim() !== '' ? (
+                                      <>
+                                        {' '}
+                                        · {t('orders.purchasePrice')}: AFN{' '}
+                                        {parseFloat(item.effective_purchase_unit_cost ?? item.purchase_unit_cost).toFixed(2)}
+                                      </>
+                                    ) : null}
                                   </span>
                                 </div>
                               ))}
@@ -633,20 +647,16 @@ const OrdersList = () => {
 
         {/* Pagination & Controls */}
         <div className="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-600 px-2 py-2 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto justify-between sm:justify-start">
-            <span className="text-[10px] text-gray-600 dark:text-gray-400">{t('orders.itemsPerPage')}:</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
+          <div className="text-[10px] text-gray-600 dark:text-gray-400 w-full sm:w-auto">
+            {filteredOrders.length === 0 ? (
+              <span>{t('pagination.showing')} 0 {t('pagination.of')} 0</span>
+            ) : (
+              <span>
+                {t('pagination.showing')}{' '}
+                {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredOrders.length)}{' '}
+                {t('pagination.of')} {filteredOrders.length}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">

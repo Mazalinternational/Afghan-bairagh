@@ -87,6 +87,11 @@ const QuotationDetails = () => {
             <p className="text-xs text-gray-600 dark:text-gray-400">
               {formatDate(quotation.quotation_date)}
             </p>
+            {(quotation.manual_serial_no || '').trim() !== '' && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                {t('customers.manualSerialNo')}: <span className="font-medium text-gray-800 dark:text-gray-200">{quotation.manual_serial_no}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

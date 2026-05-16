@@ -129,6 +129,7 @@ const QuotationsList = () => {
                 <thead className="bg-blue-600">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-white">{t('quotations.id')}</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-white">{t('customers.manualSerialNo')}</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-white">{t('quotations.customer')}</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-white">{t('quotations.date')}</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-white">{t('quotations.amount')}</th>
@@ -139,6 +140,9 @@ const QuotationsList = () => {
                   {quotations.map((quotation) => (
                     <tr key={quotation.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">#{quotation.id}</td>
+                      <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate" title={quotation.manual_serial_no || ''}>
+                        {(quotation.manual_serial_no || '').trim() || '—'}
+                      </td>
                       <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">
                         {quotation.customer_name || 'N/A'}
                       </td>

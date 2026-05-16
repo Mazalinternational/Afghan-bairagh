@@ -22,6 +22,7 @@ const CreateQuotation = () => {
   const [formData, setFormData] = useState({
     customer: '',
     notes: '',
+    manual_serial_no: '',
     quotation_date: '',
     quotation_items: [{ item: '', quantity: 1, price_estimate: 0, sale_price: 0, flag_size: '', quality_design_type: '', manual_item_name: '', useManual: false, itemSearch: '', collapsed: false }]
   });
@@ -43,6 +44,7 @@ const CreateQuotation = () => {
         setFormData({
           customer: quotation.customer,
           notes: quotation.notes || '',
+          manual_serial_no: quotation.manual_serial_no || '',
           quotation_date: formatDateForInput(quotation.quotation_date) || formatDateForInput(quotation.created_at),
           quotation_items: (quotation.quotation_items || []).map((item) => {
             const purchaseStored =
@@ -215,6 +217,7 @@ const CreateQuotation = () => {
       const quotationData = {
         customer: customerId,
         notes: formData.notes,
+        manual_serial_no: (formData.manual_serial_no || '').trim(),
         quotation_items: processedItems
       };
       if (formData.quotation_date) {
@@ -568,6 +571,17 @@ const CreateQuotation = () => {
             </p>
           </div>
         )}
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('customers.manualSerialNo')}</label>
+          <input
+            type="text"
+            value={formData.manual_serial_no}
+            onChange={(e) => setFormData({ ...formData, manual_serial_no: e.target.value })}
+            className="w-full max-w-md px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+            placeholder={t('customers.manualSerialNoPlaceholder')}
+          />
+        </div>
 
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('quotations.quotationDateLabel')}</label>

@@ -69,8 +69,9 @@ const PrintablePressBill = ({ record, billAudience = 'internal' }) => {
     const mk = parseLineNum(line.making_unit_price ?? line.making_price);
     const sl = parseLineNum(line.selling_unit_price ?? line.selling_price);
     const sub = parseLineNum(line.line_total);
-    if (sl > 0 && q > 0) return sum + q * (sl - mk);
-    return sum + (sub - q * mk);
+    if (q <= 0 || sl <= 0) return sum;
+    const cost = mk > 0 ? q * mk : sub;
+    return sum + (q * sl - cost);
   }, 0);
 
   const handlePrint = () => {

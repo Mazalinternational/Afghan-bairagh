@@ -84,17 +84,23 @@ const DirectSalesList = () => {
     const matchesFilter = filter === 'all' || (filter === 'unpaid' && sale.payment_status !== 'Paid');
     const matchesSearch = !searchQuery || 
       sale.customer_name_display?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sale.manual_serial_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       sale.id.toString().includes(searchQuery);
     return matchesFilter && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredSales.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedSales = filteredSales.slice(startIndex, startIndex + itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [filter, searchQuery]);
+
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
+    setCurrentPage((p) => Math.min(p, tp));
+  }, [filteredSales.length]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-indigo-100 dark:from-gray-900 dark:via-blue-900 dark:to-gray-900 p-2">
@@ -179,8 +185,13 @@ const DirectSalesList = () => {
                 <div key={sale.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-2 hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="text-xs font-semibold text-gray-900 dark:text-white">#{sale.id} - {sale.customer_name_display}</h3>
+                        {(sale.manual_serial_no || '').trim() !== '' && (
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {t('customers.manualSerialNo')}: <span className="font-medium">{sale.manual_serial_no}</span>
+                          </span>
+                        )}
                         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${getPaymentStatusBadge(sale.payment_status)}`}>
                           {sale.payment_status === 'Paid' ? t('sales.paid') : sale.payment_status === 'Partial' ? t('sales.partial') : t('sales.unpaid')}
                         </span>
@@ -206,7 +217,7 @@ const DirectSalesList = () => {
             </div>
           )}
 
-          {totalPages > 1 && (
+          {filteredSales.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-2">
               <div className="flex items-center justify-between text-xs">
                 <div className="text-gray-600 dark:text-gray-400">

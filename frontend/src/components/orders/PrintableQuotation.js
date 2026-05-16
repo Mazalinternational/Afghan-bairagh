@@ -224,6 +224,12 @@ const PrintableQuotation = ({ order, customer }) => {
               </span>
             </div>
           </div>
+          {(order.manual_serial_no || '').trim() !== '' && (
+            <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+              <span style={{ fontWeight: 'bold' }}>{t('customers.manualSerialNo')}:</span>
+              <span style={{ marginRight: '10px' }}>{String(order.manual_serial_no).trim()}</span>
+            </div>
+          )}
           <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
             <span style={{ fontWeight: 'bold' }}>اسم مشتری:</span>
             <span style={{ marginRight: '10px' }}>{customerName}</span>

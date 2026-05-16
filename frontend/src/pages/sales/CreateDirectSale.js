@@ -43,7 +43,8 @@ const CreateDirectSale = () => {
     sale_date: getTodayDateString(),
     show_date_on_bill: true,
     discount: 0,
-    notes: ''
+    notes: '',
+    manual_serial_no: '',
   });
   
   const [saleItems, setSaleItems] = useState([{
@@ -86,7 +87,8 @@ const CreateDirectSale = () => {
         sale_date: toDateInputValue(sale.sale_date) || getTodayDateString(),
         show_date_on_bill: sale.show_date_on_bill !== false,
         discount: sale.discount || 0,
-        notes: sale.notes || ''
+        notes: sale.notes || '',
+        manual_serial_no: sale.manual_serial_no || '',
       });
       setSaleItems(
         (sale.items || []).map((item) => ({
@@ -219,6 +221,7 @@ const CreateDirectSale = () => {
         show_date_on_bill: formData.show_date_on_bill,
         discount: parseLocaleFloat(formData.discount) || 0,
         notes: formData.notes,
+        manual_serial_no: (formData.manual_serial_no || '').trim(),
         items: saleItems.map(item => ({
           item_name: item.item_name,
           flag_size: item.flag_size || '',
@@ -293,7 +296,7 @@ const CreateDirectSale = () => {
             <h2 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">
               {t('sales.customerInformation')}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('sales.customerNameRequiredLabel')}
@@ -314,15 +317,24 @@ const CreateDirectSale = () => {
                 <select
                   value={formData.customer}
                   onChange={(e) => {
-                    const selectedCustomer = customers.find(c => c.id === parseLocaleInt(e.target.value));
+                    const raw = e.target.value;
+                    if (!raw) {
+                      setFormData({ ...formData, customer: '' });
+                      return;
+                    }
+                    const selectedCustomer = customers.find((c) => c.id === parseLocaleInt(raw));
                     if (selectedCustomer) {
-                      setFormData({ ...formData, customer: e.target.value, customer_name: selectedCustomer.name });
+                      setFormData({
+                        ...formData,
+                        customer: raw,
+                        customer_name: selectedCustomer.name,
+                      });
                     }
                   }}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">{t('sales.selectCustomerPlaceholder')}</option>
-                  {customers.map(customer => (
+                  {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name} - {customer.phone}
                     </option>
@@ -339,7 +351,7 @@ const CreateDirectSale = () => {
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center mt-5">
+              <div className="flex items-end pb-1.5">
                 <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                   <input
                     type="checkbox"
@@ -349,6 +361,18 @@ const CreateDirectSale = () => {
                   />
                   {t('sales.showDateOnBill') || 'Show date on bill'}
                 </label>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('customers.manualSerialNo')}
+                </label>
+                <input
+                  type="text"
+                  value={formData.manual_serial_no}
+                  onChange={(e) => setFormData({ ...formData, manual_serial_no: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={t('customers.manualSerialNoPlaceholder')}
+                />
               </div>
             </div>
           </div>
@@ -420,121 +444,123 @@ const CreateDirectSale = () => {
                   
                   {/* Collapsible Content */}
                   {isExpanded && (
-                  <div className="p-2 border-t border-gray-200 dark:border-gray-600">
-                  <div className="grid grid-cols-1 md:grid-cols-8 gap-3">
-                    {/* Item Name */}
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('items.name')} *
-                      </label>
-                      <input
-                        type="text"
-                        value={saleItem.item_name}
-                        onChange={(e) => updateSaleItem(index, 'item_name', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder={t('items.enterName')}
-                        required
-                      />
+                  <div className="p-2 border-t border-gray-200 dark:border-gray-600 space-y-3">
+                    {/* Row 1: three inputs */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('items.name')} *
+                        </label>
+                        <input
+                          type="text"
+                          value={saleItem.item_name}
+                          onChange={(e) => updateSaleItem(index, 'item_name', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder={t('items.enterName')}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          سایز (اندازه)
+                        </label>
+                        <input
+                          type="text"
+                          value={saleItem.flag_size || ''}
+                          onChange={(e) => updateSaleItem(index, 'flag_size', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="مثال: 2x3"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          دیزاین (طرح)
+                        </label>
+                        <input
+                          type="text"
+                          value={saleItem.quality_design_type || ''}
+                          onChange={(e) => updateSaleItem(index, 'quality_design_type', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="مثال: چاپی"
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        سایز (اندازه)
-                      </label>
-                      <input
-                        type="text"
-                        value={saleItem.flag_size || ''}
-                        onChange={(e) => updateSaleItem(index, 'flag_size', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="مثال: 2x3"
-                      />
+                    {/* Row 2: three inputs */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('sales.quantity')} *
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={saleItem.quantity}
+                          onChange={(e) => updateSaleItem(index, 'quantity', normalizeNumeralString(e.target.value))}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('sales.sellingPricePerUnit')}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={saleItem.price_per_unit}
+                          onChange={(e) =>
+                            updateSaleItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('sales.costPricePerUnit')}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={saleItem.cost_per_unit}
+                          onChange={(e) =>
+                            updateSaleItem(index, 'cost_per_unit', normalizeNumeralString(e.target.value))
+                          }
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        دیزاین (طرح)
-                      </label>
-                      <input
-                        type="text"
-                        value={saleItem.quality_design_type || ''}
-                        onChange={(e) => updateSaleItem(index, 'quality_design_type', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="مثال: چاپی"
-                      />
+                    {/* Row 3: line total + supplier (two columns) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('sales.total')}
+                        </label>
+                        <input
+                          type="text"
+                          value={`AFN ${(
+                            parseLocaleFloat(saleItem.quantity) * parseLocaleFloat(saleItem.price_per_unit || 0)
+                          ).toFixed(2)}`}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white"
+                          readOnly
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          {t('sales.supplierNameOptionalLabel')}
+                        </label>
+                        <input
+                          type="text"
+                          value={saleItem.supplier_name}
+                          onChange={(e) => updateSaleItem(index, 'supplier_name', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder={t('sales.supplierNameOptionalLabel')}
+                        />
+                      </div>
                     </div>
-
-                    {/* Quantity */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('sales.quantity')} *
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={saleItem.quantity}
-                        onChange={(e) => updateSaleItem(index, 'quantity', normalizeNumeralString(e.target.value))}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    {/* Selling Price */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('sales.sellingPricePerUnit')}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={saleItem.price_per_unit}
-                        onChange={(e) => updateSaleItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    {/* Cost Price */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('sales.costPricePerUnit')}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={saleItem.cost_per_unit}
-                        onChange={(e) => updateSaleItem(index, 'cost_per_unit', normalizeNumeralString(e.target.value))}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-
-                    {/* Total */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('sales.total')}
-                      </label>
-                      <input
-                        type="text"
-                        value={`AFN ${(parseLocaleFloat(saleItem.quantity) * parseLocaleFloat(saleItem.price_per_unit || 0)).toFixed(2)}`}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white"
-                        readOnly
-                      />
-                    </div>
-                  </div>
-
-                  {/* Supplier Name */}
-                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      {t('sales.supplierNameOptionalLabel')}
-                    </label>
-                    <input
-                      type="text"
-                      value={saleItem.supplier_name}
-                      onChange={(e) => updateSaleItem(index, 'supplier_name', e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder={t('sales.supplierNameOptionalLabel')}
-                    />
-                  </div>
                   </div>
                   )}
                 </div>
@@ -548,7 +574,7 @@ const CreateDirectSale = () => {
             <h2 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">
               {t('sales.financialSummary')}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('sales.discount')}

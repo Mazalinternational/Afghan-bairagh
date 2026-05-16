@@ -1180,6 +1180,13 @@ const translations = {
         selectAll: "Select All",
         noOrdersAvailable: "No orders available",
         ordersSelected: "{{count}} order(s) selected",
+        selectInvoiceEntry: "Please select at least one order or sale with a balance.",
+        paymentSuccessInvoices: "Payment recorded for {{count}} invoice(s).",
+        paymentReceiptMultiple: "Payment for {{count}} invoices",
+        selectInvoices: "Select invoices (orders & sales)",
+        noOutstandingInvoices: "No orders or sales with an outstanding balance.",
+        invoicesSelected: "{{count}} invoice(s) selected",
+        total: "Total",
         totalDueLabel: "Total Due",
         amountLabel: "Amount",
         autoCalculated: "(Auto-calculated)",
@@ -1204,7 +1211,26 @@ const translations = {
         noPrevBalancePayments: "No previous balance payments yet.",
         paidTowardPrevBalance: "Paid toward previous balance",
         openingTotalOnFile: "Opening total on file",
-        addPreviousBalanceShort: "Add previous balance"
+        addPreviousBalanceShort: "Add previous balance",
+        editOrderPaymentTitle: "Edit order payment",
+        editSalePaymentTitle: "Edit sale payment",
+        editDirectSalePaymentTitle: "Edit direct sale payment",
+        balancePaymentUpdated: "Previous balance payment updated.",
+        balancePaymentUpdateFailed: "Failed to update previous balance payment.",
+        balancePaymentDeleteFailed: "Failed to delete previous balance payment.",
+        paymentUpdatedSuccess: "Payment updated successfully.",
+        paymentUpdateFailed: "Failed to update payment.",
+        paymentDeletedSuccess: "Payment deleted successfully.",
+        paymentDeleteFailed: "Failed to delete payment.",
+        deletePaymentTitle: "Delete payment",
+        deleteOrderPaymentConfirm:
+          "Remove this payment from the order? The order balance will be updated.",
+        deleteSalePaymentConfirm:
+          "Remove this payment from the sale? The sale balance will be updated.",
+        deleteDirectSalePaymentConfirm:
+          "Remove this payment from the direct sale? The balance will be updated.",
+        deletePrevBalancePaymentConfirm:
+          "Remove this previous balance payment? The customer's remaining opening balance will be adjusted."
       }
     },
     inventory: {
@@ -3080,6 +3106,13 @@ const translations = {
         selectAll: "انتخاب همه",
         noOrdersAvailable: "سفارشی موجود نیست",
         ordersSelected: "{{count}} سفارش انتخاب شده",
+        selectInvoiceEntry: "لطفاً حداقل یک سفارش یا فروش با مانده بدهی انتخاب کنید.",
+        paymentSuccessInvoices: "پرداخت برای {{count}} فاکتور با موفقیت ثبت شد.",
+        paymentReceiptMultiple: "پرداخت برای {{count}} فاکتور",
+        selectInvoices: "انتخاب فاکتورها (سفارش و فروش)",
+        noOutstandingInvoices: "سفارش یا فروشی با مانده بدهی موجود نیست.",
+        invoicesSelected: "{{count}} فاکتور انتخاب شده",
+        total: "مجموع",
         totalDueLabel: "مجموع بدهی",
         amountLabel: "مبلغ",
         autoCalculated: "(محاسبه خودکار)",
@@ -3104,7 +3137,26 @@ const translations = {
         noPrevBalancePayments: "هنوز پرداخت باقی‌مانده قبلی ثبت نشده است.",
         paidTowardPrevBalance: "پرداخت‌شده نسبت به باقی‌مانده قبلی",
         openingTotalOnFile: "جمع بیلانس اولیه در پرونده",
-        addPreviousBalanceShort: "افزودن باقی‌مانده قبلی"
+        addPreviousBalanceShort: "افزودن باقی‌مانده قبلی",
+        editOrderPaymentTitle: "ویرایش پرداخت سفارش",
+        editSalePaymentTitle: "ویرایش پرداخت فروش",
+        editDirectSalePaymentTitle: "ویرایش پرداخت فروش مستقیم",
+        balancePaymentUpdated: "پرداخت باقی‌مانده قبلی به‌روز شد.",
+        balancePaymentUpdateFailed: "به‌روزرسانی پرداخت باقی‌مانده قبلی ناموفق بود.",
+        balancePaymentDeleteFailed: "حذف پرداخت باقی‌مانده قبلی ناموفق بود.",
+        paymentUpdatedSuccess: "پرداخت با موفقیت به‌روز شد.",
+        paymentUpdateFailed: "به‌روزرسانی پرداخت ناموفق بود.",
+        paymentDeletedSuccess: "پرداخت با موفقیت حذف شد.",
+        paymentDeleteFailed: "حذف پرداخت ناموفق بود.",
+        deletePaymentTitle: "حذف پرداخت",
+        deleteOrderPaymentConfirm:
+          "این پرداخت از سفارش حذف شود؟ مانده سفارش به‌روز می‌شود.",
+        deleteSalePaymentConfirm:
+          "این پرداخت از فروش حذف شود؟ مانده فروش به‌روز می‌شود.",
+        deleteDirectSalePaymentConfirm:
+          "این پرداخت از فروش مستقیم حذف شود؟ مانده به‌روز می‌شود.",
+        deletePrevBalancePaymentConfirm:
+          "این پرداخت باقی‌مانده قبلی حذف شود؟ مانده باقی‌مانده قبلی مشتری تعدیل می‌شود."
       }
     },
     inventory: {

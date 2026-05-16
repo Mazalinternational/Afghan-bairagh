@@ -23,6 +23,10 @@ class SalePaymentSerializer(serializers.ModelSerializer):
         model = SalePayment
         fields = ['id', 'sale', 'amount_paid', 'payment_method', 'payment_date', 'notes']
         read_only_fields = ['id', 'payment_date']
+        extra_kwargs = {
+            # Nested POST .../sales/:id/add_payment/ passes sale via save(sale=...)
+            'sale': {'required': False},
+        }
 
 
 class SaleSerializer(serializers.ModelSerializer):
@@ -149,6 +153,9 @@ class DirectSalePaymentSerializer(serializers.ModelSerializer):
         model = DirectSalePayment
         fields = ['id', 'direct_sale', 'amount_paid', 'payment_method', 'payment_date', 'notes']
         read_only_fields = ['id', 'payment_date']
+        extra_kwargs = {
+            'direct_sale': {'required': False},
+        }
 
 
 class DirectSaleSerializer(serializers.ModelSerializer):
@@ -162,7 +169,7 @@ class DirectSaleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'customer', 'customer_name', 'customer_name_display', 'sale_date',
             'show_date_on_bill', 'total_amount', 'cost_amount', 'discount', 'net_amount', 'profit', 'due',
-            'status', 'payment_status', 'notes', 'items', 'payments', 'total_paid',
+            'manual_serial_no', 'status', 'payment_status', 'notes', 'items', 'payments', 'total_paid',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'total_amount', 'cost_amount', 'net_amount', 'profit', 'payment_status', 'created_at', 'updated_at']
@@ -181,16 +188,21 @@ class DirectSaleSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         items_data = validated_data.pop('items', None)
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
+
         if items_data is not None:
             instance.items.all().delete()
             for item_data in items_data:
                 DirectSaleItem.objects.create(direct_sale=instance, **item_data)
-        
+        else:
+            # Header-only edits (e.g. discount): recalc net/profit from line items.
+            instance.calculate_totals()
+            instance.save(update_fields=['total_amount', 'cost_amount', 'net_amount', 'profit'])
+
+        instance.update_due()
         return instance
 
 
@@ -203,7 +215,7 @@ class DirectSaleListSerializer(serializers.ModelSerializer):
         model = DirectSale
         fields = [
             'id', 'customer', 'customer_name_display', 'sale_date', 'total_amount', 'cost_amount',
-            'show_date_on_bill', 'net_amount', 'profit', 'due', 'status', 'payment_status', 'item_count',
+            'show_date_on_bill', 'manual_serial_no', 'net_amount', 'profit', 'due', 'status', 'payment_status', 'item_count',
             'total_paid', 'created_at',
         ]
 

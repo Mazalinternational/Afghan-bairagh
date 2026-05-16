@@ -61,7 +61,12 @@ const PrintableDirectSaleBill = ({ sale }) => {
           </div>
           <div className="flex items-center justify-center" style={{ width: '25%', backgroundColor: '#fff', position: 'relative', padding: '10px' }}>
             <div style={{ position: 'absolute', left: 0, top: '30%', transform: 'translateY(-50%)', backgroundColor: '#0047AB', color: 'white', padding: '8px 20px', fontSize: '18px', fontWeight: 'bold', clipPath: 'polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%)' }} dir="rtl">نمبر بل</div>
-            <div style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '16px', fontWeight: 'bold', color: '#0047AB' }} dir="rtl">نمبر مسلسل: {billNo}</div>
+            <div style={{ position: 'absolute', bottom: '10px', right: '10px', fontSize: '16px', fontWeight: 'bold', color: '#0047AB' }} dir="rtl">
+              نمبر مسلسل: {billNo}
+              {(sale.manual_serial_no || '').trim() !== ''
+                ? ` · ${String(sale.manual_serial_no).trim()}`
+                : ''}
+            </div>
           </div>
         </div>
 

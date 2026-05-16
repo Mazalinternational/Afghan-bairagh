@@ -35,6 +35,11 @@ const SalesList = () => {
     setCurrentPage(1);
   }, [filter, searchQuery]);
 
+  useEffect(() => {
+    const tp = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
+    setCurrentPage((p) => Math.min(p, tp));
+  }, [filteredSales.length]);
+
   const fetchSales = async () => {
     try {
       setLoading(true);
@@ -300,7 +305,7 @@ const SalesList = () => {
               </tbody>
             </table>
           </div>
-          {filteredSales.length > itemsPerPage ? (
+          {filteredSales.length > 0 ? (
             <div className="px-2 sm:px-3 py-2 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">
               <span>
                 {t('pagination.showing')} {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredSales.length)}{' '}

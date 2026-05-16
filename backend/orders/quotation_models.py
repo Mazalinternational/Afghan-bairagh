@@ -10,6 +10,13 @@ class Quotation(models.Model):
     Price Quotation - separate from orders
     """
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='quotations')
+    manual_serial_no = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Manual quotation / ledger serial number',
+    )
     quotation_date = models.DateTimeField(default=timezone.now, db_index=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     notes = models.TextField(blank=True)

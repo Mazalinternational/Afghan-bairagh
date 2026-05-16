@@ -16,6 +16,10 @@ import {
 import api from '../../services/api';
 import { useTranslation } from '../../i18n/fallback';
 import { normalizeNumeralString, parseLocaleFloat, parseLocaleInt } from '../../utils/numerals';
+import {
+  effectivePurchaseUnitFromInventory,
+  purchaseUnitCostStringFromInventory
+} from '../../utils/saleItemCost';
 import ProductTypeManager from '../../components/orders/ProductTypeManager';
 
 /** True if inventory row is a finished flag-stand product (category/name), not a cloth flag. */
@@ -70,6 +74,16 @@ function inventoryFieldStr(inv, field) {
   return String(inv[field]);
 }
 
+/** Subtext when purchase field is empty and no unit cost can be resolved from inventory/supplier data. */
+function orderLinePurchaseCostHintText(item, t) {
+  if (item.isManual || !item.item) return null;
+  if (String(item.purchase_price ?? '').trim() !== '') return null;
+  const meta = effectivePurchaseUnitFromInventory(item.item);
+  if (meta.value != null) return null;
+  if (meta.listUnitPrice != null) return t('sales.purchaseCostNoCostListPriceHint');
+  return t('sales.costNotSetInInventory');
+}
+
 /** Map API order line → CreateOrder local row (needs inventory catalog for FK lookup). */
 function mapApiOrderItemToLine(oi, itemsCatalog) {
   const rawItemId =
@@ -88,8 +102,8 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
   const purchase =
     persistedPurchase !== ''
       ? persistedPurchase
-      : inv != null && inv.cost_price != null && inv.cost_price !== ''
-        ? String(inv.cost_price)
+      : inv != null
+        ? purchaseUnitCostStringFromInventory(inv)
         : '';
   const productType = inferProductTypeFromInventory(inv);
   const sizeFromApi = oi.flag_size || '';
@@ -106,7 +120,7 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
     quantity: qtyStr,
     purchase_price: purchase,
     price_per_unit: priceStr,
-    isCollapsed: true
+    isCollapsed: false
   };
 }
 
@@ -245,6 +259,20 @@ const CreateOrder = () => {
         sku: item.sku || t('common.notAvailable')
       }));
       setItems(processedItems);
+      setOrderItems((prev) =>
+        prev.map((row) => {
+          if (row.isManual || row.itemId == null || String(row.itemId).trim() === '') return row;
+          const fresh = processedItems.find((i) => String(i.id) === String(row.itemId));
+          if (!fresh) return row;
+          const nextPurchase = purchaseUnitCostStringFromInventory(fresh);
+          const emptyPurchase = !row.purchase_price || String(row.purchase_price).trim() === '';
+          return {
+            ...row,
+            item: fresh,
+            ...(emptyPurchase && nextPurchase !== '' ? { purchase_price: nextPurchase } : {}),
+          };
+        })
+      );
     } catch (error) {
       console.error('Error fetching items:', error);
       const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || t('common.unknownError');
@@ -365,7 +393,12 @@ const CreateOrder = () => {
 
   const calculateItemProfit = (item) => {
     const quantity = parseLocaleFloat(item.quantity) || 0;
-    const purchasePrice = parseLocaleFloat(item.purchase_price) || 0;
+    let purchasePrice = parseLocaleFloat(item.purchase_price);
+    if (Number.isNaN(purchasePrice) && !item.isManual && item.item) {
+      const meta = effectivePurchaseUnitFromInventory(item.item);
+      purchasePrice = meta.value != null ? meta.value : NaN;
+    }
+    if (Number.isNaN(purchasePrice)) purchasePrice = 0;
     const sellingPrice = parseLocaleFloat(item.price_per_unit) || 0;
     return quantity * (sellingPrice - purchasePrice);
   };
@@ -381,8 +414,12 @@ const CreateOrder = () => {
   const buildOrderItemsPayload = () =>
     orderItems
       .map((oi) => {
-        const purchaseParsed = parseLocaleFloat(oi.purchase_price);
-        const purchase_unit_cost = Number.isNaN(purchaseParsed) ? null : purchaseParsed;
+        let purchaseParsed = parseLocaleFloat(oi.purchase_price);
+        let purchase_unit_cost = Number.isNaN(purchaseParsed) ? null : purchaseParsed;
+        if (purchase_unit_cost == null && !oi.isManual && oi.item) {
+          purchaseParsed = parseLocaleFloat(purchaseUnitCostStringFromInventory(oi.item));
+          purchase_unit_cost = Number.isNaN(purchaseParsed) ? null : purchaseParsed;
+        }
         if (oi.isManual) {
           return {
             item: null,
@@ -459,7 +496,7 @@ const CreateOrder = () => {
         ...next[index],
         itemId: val,
         item: selectedItem,
-        purchase_price: selectedItem ? inventoryFieldStr(selectedItem, 'cost_price') : next[index].purchase_price,
+        purchase_price: selectedItem ? purchaseUnitCostStringFromInventory(selectedItem) : '',
         price_per_unit: selectedItem ? inventoryFieldStr(selectedItem, 'unit_price') : next[index].price_per_unit
       };
       return next;
@@ -691,7 +728,7 @@ const CreateOrder = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Order Form */}
         <div className="lg:col-span-2">
-          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-800/70 rounded-xl sm:rounded-2xl shadow-xl border border-white/20 dark:border-gray-700 overflow-hidden">
+          <div className="backdrop-blur-xl bg-white/70 dark:bg-gray-800/70 rounded-xl sm:rounded-2xl shadow-xl border border-white/20 dark:border-gray-700">
             {/* Standard page header */}
             <div className="bg-blue-50 dark:bg-gray-800 p-3 sm:p-4 border-b border-blue-100 dark:border-gray-700">
               <div className="flex items-center justify-between">
@@ -922,9 +959,9 @@ const CreateOrder = () => {
                       <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.itemNumber', { n: index + 1 })}</span>
                       {item.isCollapsed && (
                         <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {item.isManual ? item.manualItemName : item.item?.name || t('orders.notSelected')} 
-                          {item.quantity && ` - ${t('orders.qtyAbbr')}: ${item.quantity}`}
-                          {item.price_per_unit && ` - AFN ${parseFloat(item.price_per_unit).toFixed(2)}`}
+                          {item.isManual ? item.manualItemName : item.item?.name || t('orders.notSelected')}
+                          {item.quantity && ` — ${t('orders.qtyAbbr')}: ${item.quantity}`}
+                          {item.price_per_unit && ` — AFN ${parseFloat(item.price_per_unit).toFixed(2)}`}
                         </span>
                       )}
                       <label className="flex items-center gap-1.5 cursor-pointer ml-2">
@@ -1054,6 +1091,8 @@ const CreateOrder = () => {
                           if (!keep) {
                             row.itemId = '';
                             row.item = null;
+                            row.purchase_price = '';
+                            row.price_per_unit = '';
                           }
                           next[index] = row;
                           return next;
@@ -1136,62 +1175,71 @@ const CreateOrder = () => {
                     )}
                   </div>
 
-                  {/* Quantity, Purchase Price, and Selling Price */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('sales.quantity')}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder={t('orders.enterQuantity')}
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', normalizeNumeralString(e.target.value))}
-                        className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                          errors[`item_${index}_quantity`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                      {errors[`item_${index}_quantity`] && (
-                        <p className="mt-1 text-[10px] sm:text-xs text-red-600 dark:text-red-400">{errors[`item_${index}_quantity`]}</p>
-                      )}
-                    </div>
+                  {/* Quantity, purchase (cost), selling — after item details */}
+                  <div
+                    className="mt-3 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-white/60 dark:bg-gray-900/30 p-2 sm:p-3"
+                    dir="ltr"
+                  >
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 items-start">
+                      <div className="min-w-0">
+                        <label className="block text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
+                          {t('sales.quantity')}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder={t('orders.enterQuantity')}
+                          value={item.quantity}
+                          onChange={(e) => updateOrderItem(index, 'quantity', normalizeNumeralString(e.target.value))}
+                          className={`w-full min-w-0 px-2 py-1.5 sm:py-2 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                            errors[`item_${index}_quantity`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors[`item_${index}_quantity`] && (
+                          <p className="mt-1 text-[10px] text-red-600 dark:text-red-400 leading-tight">{errors[`item_${index}_quantity`]}</p>
+                        )}
+                      </div>
 
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('orders.purchasePrice')}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={t('orders.costPricePh')}
-                        value={item.purchase_price}
-                        onChange={(e) => updateOrderItem(index, 'purchase_price', normalizeNumeralString(e.target.value))}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
-                      />
-                    </div>
+                      <div className="min-w-0">
+                        <label className="block text-[10px] sm:text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1 truncate" title={`${t('common.cost')} — ${t('orders.purchasePrice')}`}>
+                          {t('orders.purchasePrice')}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder={t('orders.costPricePh')}
+                          value={item.purchase_price}
+                          onChange={(e) => updateOrderItem(index, 'purchase_price', normalizeNumeralString(e.target.value))}
+                          className="w-full min-w-0 px-2 py-1.5 sm:py-2 text-xs sm:text-sm border-2 border-amber-200 dark:border-amber-900/50 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200"
+                        />
+                        <p className="mt-1 text-[10px] leading-tight text-gray-500 dark:text-gray-400 min-h-[1.25rem]">
+                          {orderLinePurchaseCostHintText(item, t) ?? '\u00a0'}
+                        </p>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        {t('orders.sellingPrice')}
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={t('orders.sellingPricePh')}
-                        value={item.price_per_unit}
-                        onChange={(e) => updateOrderItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))}
-                        className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                          errors[`item_${index}_price_per_unit`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      />
-                      {errors[`item_${index}_price_per_unit`] && (
-                        <p className="mt-1 text-[10px] sm:text-xs text-red-600 dark:text-red-400">{errors[`item_${index}_price_per_unit`]}</p>
-                      )}
+                      <div className="min-w-0">
+                        <label className="block text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 truncate">
+                          {t('orders.sellingPrice')}
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder={t('orders.sellingPricePh')}
+                          value={item.price_per_unit}
+                          onChange={(e) => updateOrderItem(index, 'price_per_unit', normalizeNumeralString(e.target.value))}
+                          className={`w-full min-w-0 px-2 py-1.5 sm:py-2 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                            errors[`item_${index}_price_per_unit`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {errors[`item_${index}_price_per_unit`] && (
+                          <p className="mt-1 text-[10px] text-red-600 dark:text-red-400 leading-tight">{errors[`item_${index}_price_per_unit`]}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Item Total and Profit */}
                   {calculateItemTotal(item) > 0 && (
                     <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-700 p-2 rounded">
                       <div>
@@ -1202,6 +1250,7 @@ const CreateOrder = () => {
                       </div>
                     </div>
                   )}
+
                     </div>
                   )}
                 </div>

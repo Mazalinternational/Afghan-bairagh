@@ -36,6 +36,13 @@ class DirectSale(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Draft', db_index=True)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='Unpaid', db_index=True)
     notes = models.TextField(blank=True)
+    manual_serial_no = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Manual ledger / reference serial number (optional)',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -115,6 +122,7 @@ class DirectSaleItem(models.Model):
         if self.direct_sale_id:
             self.direct_sale.calculate_totals()
             self.direct_sale.save(update_fields=['total_amount', 'cost_amount', 'net_amount', 'profit'])
+            self.direct_sale.update_due()
 
     def __str__(self):
         return f"{self.item_name} x{self.quantity} - Direct Sale #{self.direct_sale.id}"

@@ -66,6 +66,13 @@ const OrderDetails = () => {
     return (isNaN(num) ? 0 : num).toFixed(2);
   };
 
+  const formatPurchaseUnit = (value) => {
+    if (value === null || value === undefined || value === '') return '—';
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    if (isNaN(num)) return '—';
+    return formatCurrency(num);
+  };
+
   const fetchOrderDetails = async () => {
     setLoading(true);
     try {
@@ -333,13 +340,14 @@ const OrderDetails = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {/* Order Items */}
               <tr className="bg-gray-100 dark:bg-gray-700">
-                <td colSpan="5" className="px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white">{t('orders.orderItemsSection')}</td>
+                <td colSpan="6" className="px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white">{t('orders.orderItemsSection')}</td>
               </tr>
               <tr className="bg-gray-50 dark:bg-gray-800">
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('sales.item')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.flagSize')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.qty')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('common.price')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.purchasePrice')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.sellingPricePh')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('common.total')}</th>
               </tr>
               {hasOrderItems ? (
@@ -348,6 +356,9 @@ const OrderDetails = () => {
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{oi.item_name || oi.item?.name || '-'}</td>
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{oi.flag_size || '-'}</td>
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{oi.quantity}</td>
+                    <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">
+                      {formatPurchaseUnit(oi.effective_purchase_unit_cost ?? oi.purchase_unit_cost)}
+                    </td>
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(oi.price_estimate)}</td>
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(oi.total)}</td>
                   </tr>
@@ -357,6 +368,7 @@ const OrderDetails = () => {
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.item_name || order.item?.name || '-'}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.flag_size || '-'}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{order.quantity || '-'}</td>
+                  <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatPurchaseUnit(order.purchase_unit_cost)}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(order.price_estimate ?? order.price_per_unit)}</td>
                   <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{formatCurrency(order.total_amount)}</td>
                 </tr>
@@ -364,12 +376,12 @@ const OrderDetails = () => {
               
               {/* Customer Information */}
               <tr className="bg-gray-100 dark:bg-gray-700">
-                <td colSpan="5" className="px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white">{t('orders.customer')}</td>
+                <td colSpan="6" className="px-3 py-2 text-xs font-semibold text-gray-900 dark:text-white">{t('orders.customer')}</td>
               </tr>
               <tr className="bg-gray-50 dark:bg-gray-800">
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('common.name')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('common.phone')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300" colSpan="3">{t('common.address')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300" colSpan="4">{t('common.address')}</th>
               </tr>
               <tr className="hover:bg-gray-50 dark:hover:bg-gray-700">
                 <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">
@@ -378,14 +390,14 @@ const OrderDetails = () => {
                 <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">
                   {customer?.phone || (order.customer && typeof order.customer === 'object' ? order.customer.phone : order.customer_phone || 'N/A')}
                 </td>
-                <td className="px-3 py-2 text-xs text-gray-900 dark:text-white" colSpan="3">
+                <td className="px-3 py-2 text-xs text-gray-900 dark:text-white" colSpan="4">
                   {customer?.address || (order.customer && typeof order.customer === 'object' ? order.customer.address : order.customer_address || 'N/A')}
                 </td>
               </tr>
 
               {/* Payments */}
               <tr className="bg-gray-100 dark:bg-gray-700">
-                <td colSpan="5" className="px-3 py-2">
+                <td colSpan="6" className="px-3 py-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-semibold text-gray-900 dark:text-white">{t('common.payment')}</span>
                     {dueAmount > 0 && (
@@ -403,7 +415,7 @@ const OrderDetails = () => {
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('orders.orderId')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('common.amount')}</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">{t('sales.paymentMethod')}</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300" colSpan="2">{t('common.actions')}</th>
+                <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300" colSpan="3">{t('common.actions')}</th>
               </tr>
               {order.payments?.length ? (
                 order.payments.map(p => (
@@ -411,7 +423,7 @@ const OrderDetails = () => {
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">#{p.id}</td>
                     <td className="px-3 py-2 text-xs font-medium text-gray-900 dark:text-white">AFN {formatCurrency(p.amount_paid ?? p.amount)}</td>
                     <td className="px-3 py-2 text-xs text-gray-900 dark:text-white">{p.payment_method}</td>
-                    <td className="px-3 py-2 text-xs" colSpan="2">
+                    <td className="px-3 py-2 text-xs" colSpan="3">
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEditPayment(p)}
@@ -433,7 +445,7 @@ const OrderDetails = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">{t('common.noData')}</td>
+                  <td colSpan="6" className="px-3 py-4 text-center text-xs text-gray-500 dark:text-gray-400">{t('common.noData')}</td>
                 </tr>
               )}
             </tbody>

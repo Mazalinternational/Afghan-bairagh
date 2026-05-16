@@ -4,10 +4,12 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import PrintableQuotation from '../../components/orders/PrintableQuotation';
 import { formatDate } from '../../i18n/dateUtils';
+import { useTranslation } from '../../i18n/fallback';
 
 const OrderQuotation = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [order, setOrder] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +92,11 @@ const OrderQuotation = () => {
             <p className="text-xs text-blue-100">
               {formatDate(order.order_date || order.created_at)}
             </p>
+            {(order.manual_serial_no || '').trim() !== '' && (
+              <p className="text-xs text-blue-100 mt-0.5">
+                {t('customers.manualSerialNo')}: <span className="font-medium">{order.manual_serial_no}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

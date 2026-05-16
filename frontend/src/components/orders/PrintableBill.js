@@ -68,6 +68,7 @@ const PrintableBill = ({ order, customer }) => {
           quality_design_type: order.quality_design_type || '',
           quantity: order.quantity || 0,
           price_estimate: order.price_per_unit || order.price_estimate || 0,
+          purchase_unit_cost: order.purchase_unit_cost ?? '',
           total: parseFloat(order.total_amount || order.total_estimated_amount || 0),
         },
       ];
@@ -81,6 +82,7 @@ const PrintableBill = ({ order, customer }) => {
       flag_size: '',
       quality_design_type: '',
       quantity: '',
+      purchase_unit_cost: '',
       price_estimate: '',
       total: '',
     });
@@ -227,13 +229,20 @@ const PrintableBill = ({ order, customer }) => {
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'right' }} dir="rtl">تفصیلات</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">سایز</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '80px' }} dir="rtl">تعداد</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">قیمت</th>
+                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '90px' }} dir="rtl">قیمت خرید</th>
+                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">قیمت فروش</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '120px' }} dir="rtl">قیمت مجموعی</th>
               </tr>
             </thead>
             <tbody>
               {displayItems.map((row, idx) => {
                 const qty = row.quantity || '';
+                const purchaseUnitRaw =
+                  row.effective_purchase_unit_cost ?? row.purchase_unit_cost;
+                const purchaseUnit =
+                  purchaseUnitRaw != null && purchaseUnitRaw !== ''
+                    ? purchaseUnitRaw
+                    : '';
                 const perPrice =
                   row.price_estimate != null && row.price_estimate !== ''
                     ? row.price_estimate
@@ -259,6 +268,9 @@ const PrintableBill = ({ order, customer }) => {
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'right', fontSize: '13px' }} dir="rtl">{desc}</td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{sizeDisplay}</td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{qty}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>
+                      {purchaseUnit !== '' && purchaseUnit != null ? `AFN ${parseFloat(purchaseUnit).toFixed(0)}` : ''}
+                    </td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>
                       {perPrice && `AFN ${parseFloat(perPrice).toFixed(0)}`}
                     </td>

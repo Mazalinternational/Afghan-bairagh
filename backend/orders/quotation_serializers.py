@@ -26,7 +26,10 @@ class QuotationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quotation
-        fields = ['id', 'customer', 'customer_name', 'quotation_date', 'total_amount', 'notes', 'quotation_items', 'created_at']
+        fields = [
+            'id', 'customer', 'customer_name', 'manual_serial_no',
+            'quotation_date', 'total_amount', 'notes', 'quotation_items', 'created_at',
+        ]
         read_only_fields = ['total_amount', 'created_at']
 
     def create(self, validated_data):
@@ -46,6 +49,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         # Update quotation fields
         instance.customer = validated_data.get('customer', instance.customer)
         instance.notes = validated_data.get('notes', instance.notes)
+        if 'manual_serial_no' in validated_data:
+            instance.manual_serial_no = validated_data['manual_serial_no'] or ''
         if 'quotation_date' in validated_data and validated_data['quotation_date'] is not None:
             instance.quotation_date = validated_data['quotation_date']
         instance.save()
