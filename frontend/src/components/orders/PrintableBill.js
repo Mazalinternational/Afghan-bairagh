@@ -68,7 +68,6 @@ const PrintableBill = ({ order, customer }) => {
           quality_design_type: order.quality_design_type || '',
           quantity: order.quantity || 0,
           price_estimate: order.price_per_unit || order.price_estimate || 0,
-          purchase_unit_cost: order.purchase_unit_cost ?? '',
           total: parseFloat(order.total_amount || order.total_estimated_amount || 0),
         },
       ];
@@ -82,15 +81,29 @@ const PrintableBill = ({ order, customer }) => {
       flag_size: '',
       quality_design_type: '',
       quantity: '',
-      purchase_unit_cost: '',
       price_estimate: '',
       total: '',
     });
   }
 
+  const itemsSubtotal = items.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
+  const discount = parseFloat(order.discount) || 0;
+  const tax = parseFloat(order.tax) || 0;
   const grandTotal = order.total_estimated_amount != null
     ? parseFloat(order.total_estimated_amount)
-    : parseFloat(order.total_amount) || items.reduce((sum, row) => sum + parseFloat(row.total || 0), 0);
+    : order.net_amount != null && order.net_amount !== ''
+      ? parseFloat(order.net_amount)
+      : parseFloat(order.total_amount) ||
+        itemsSubtotal ||
+        0;
+  const subtotalBeforeDiscount =
+    order.total_amount != null && !Number.isNaN(parseFloat(order.total_amount))
+      ? parseFloat(order.total_amount)
+      : itemsSubtotal > 0
+        ? itemsSubtotal
+        : discount > 0
+          ? grandTotal + discount - tax
+          : grandTotal;
 
   const totalPaid = order.payments?.reduce((s, p) => s + parseFloat(p.amount_paid || 0), 0) ?? 
     (order.total_paid != null ? parseFloat(order.total_paid) : 0);
@@ -229,20 +242,13 @@ const PrintableBill = ({ order, customer }) => {
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'right' }} dir="rtl">تفصیلات</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">سایز</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '80px' }} dir="rtl">تعداد</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '90px' }} dir="rtl">قیمت خرید</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">قیمت فروش</th>
+                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">قیمت</th>
                 <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '120px' }} dir="rtl">قیمت مجموعی</th>
               </tr>
             </thead>
             <tbody>
               {displayItems.map((row, idx) => {
                 const qty = row.quantity || '';
-                const purchaseUnitRaw =
-                  row.effective_purchase_unit_cost ?? row.purchase_unit_cost;
-                const purchaseUnit =
-                  purchaseUnitRaw != null && purchaseUnitRaw !== ''
-                    ? purchaseUnitRaw
-                    : '';
                 const perPrice =
                   row.price_estimate != null && row.price_estimate !== ''
                     ? row.price_estimate
@@ -269,9 +275,6 @@ const PrintableBill = ({ order, customer }) => {
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{sizeDisplay}</td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{qty}</td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>
-                      {purchaseUnit !== '' && purchaseUnit != null ? `AFN ${parseFloat(purchaseUnit).toFixed(0)}` : ''}
-                    </td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>
                       {perPrice && `AFN ${parseFloat(perPrice).toFixed(0)}`}
                     </td>
                     <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold' }}>
@@ -293,6 +296,17 @@ const PrintableBill = ({ order, customer }) => {
             clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)',
             minWidth: '200px'
           }}>
+            {discount > 0 ? (
+              <>
+                <div style={{ fontSize: '14px', textAlign: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 'bold' }}>مجموع:</span>{' '}
+                  {subtotalBeforeDiscount.toFixed(0)}
+                </div>
+                <div style={{ fontSize: '14px', textAlign: 'center', marginBottom: '6px', color: '#b91c1c' }}>
+                  <span style={{ fontWeight: 'bold' }}>تخفیف:</span> {discount.toFixed(0)}
+                </div>
+              </>
+            ) : null}
             <div style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
               مجموع پول:
             </div>

@@ -516,7 +516,22 @@ const OrderDetails = () => {
       </div>
 
       {/* Printable Bill Component */}
-      {order && <PrintableBill order={order} customer={customer || (order.customer && typeof order.customer === 'object' ? order.customer : null)} />}
+      {order && (
+        <PrintableBill
+          order={{
+            ...order,
+            discount: order.discount ?? 0,
+            total_amount:
+              (order.order_items || []).reduce(
+                (sum, row) => sum + (parseFloat(row.total) || 0),
+                0
+              ) || order.total_estimated_amount,
+            total_estimated_amount: order.total_estimated_amount,
+            payments: order.payments || [],
+          }}
+          customer={customer || (order.customer && typeof order.customer === 'object' ? order.customer : null)}
+        />
+      )}
 
       {/* Confirmation Modal */}
       <ConfirmationModal

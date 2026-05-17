@@ -182,6 +182,7 @@ const CreateOrder = () => {
   const [orderNotes, setOrderNotes] = useState('');
   const [orderStatus, setOrderStatus] = useState('Pending');
   const [orderManualSerial, setOrderManualSerial] = useState('');
+  const [orderDiscount, setOrderDiscount] = useState('0');
 
   // Fetch customers and items on component mount
   useEffect(() => {
@@ -347,6 +348,7 @@ const CreateOrder = () => {
         setOrderNotes(order.notes || '');
         setOrderStatus(order.status || 'Pending');
         setOrderManualSerial(order.manual_serial_no || '');
+        setOrderDiscount(String(order.discount ?? 0));
 
         const lines = (order.order_items || []).map((oi) => mapApiOrderItemToLine(oi, items));
         if (lines.length > 0) {
@@ -589,6 +591,7 @@ const CreateOrder = () => {
         notes: orderNotes,
         status: orderStatus,
         manual_serial_no: orderManualSerial.trim(),
+        discount: parseLocaleFloat(orderDiscount) || 0,
         order_items: buildOrderItemsPayload()
       });
       navigate(`/orders/${editOrderId}`, {
@@ -674,6 +677,7 @@ const CreateOrder = () => {
         customer: customerId,
         notes: '',
         manual_serial_no: orderManualSerial.trim(),
+        discount: parseLocaleFloat(orderDiscount) || 0,
         order_items: orderItemsPayload
       };
 
@@ -713,7 +717,9 @@ const CreateOrder = () => {
     }
   };
 
-  const totalAmount = calculateTotal();
+  const itemsSubtotal = calculateTotal();
+  const discountAmount = parseLocaleFloat(orderDiscount) || 0;
+  const totalAmount = Math.max(0, itemsSubtotal - discountAmount);
 
   if (isEditMode && loadingEditOrder) {
     return (
@@ -1295,9 +1301,36 @@ const CreateOrder = () => {
               </div>
             )}
 
+            {itemsSubtotal > 0 && (
+              <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('sales.discount')}
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={orderDiscount}
+                  onChange={(e) => setOrderDiscount(normalizeNumeralString(e.target.value))}
+                  className="w-full max-w-xs px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
+
             {/* Total Amount and Profit Summary */}
             {totalAmount > 0 && (
               <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                {discountAmount > 0 && (
+                  <>
+                    <div className="flex justify-between items-center mb-2 text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{t('sales.totalsSubtotal')}</span>
+                      <span className="font-medium">AFN {itemsSubtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2 text-sm">
+                      <span className="text-red-600 dark:text-red-400">{t('sales.discount')}</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">-AFN {discountAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-blue-800 dark:text-blue-200">{t('orders.totalAmountLabel')}</span>
                   <span className="text-lg font-bold text-blue-900 dark:text-blue-100">AFN {totalAmount.toFixed(2)}</span>

@@ -65,7 +65,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'customer', 'customer_name', 'customer_phone',
-            'order_date', 'status', 'total_estimated_amount', 'notes', 'manual_serial_no',
+            'order_date', 'status', 'total_estimated_amount', 'discount', 'notes', 'manual_serial_no',
             'order_items', 'item_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'order_date', 'total_estimated_amount', 'created_at', 'updated_at']
@@ -80,7 +80,9 @@ class OrderSerializer(serializers.ModelSerializer):
         # Create order items
         for item_data in items_data:
             OrderItem.objects.create(order=order, **item_data)
-        
+
+        order.calculate_totals()
+        order.save(update_fields=['total_estimated_amount'])
         return order
 
     def update(self, instance, validated_data):
@@ -98,7 +100,9 @@ class OrderSerializer(serializers.ModelSerializer):
             # Create new items
             for item_data in items_data:
                 OrderItem.objects.create(order=instance, **item_data)
-        
+
+        instance.calculate_totals()
+        instance.save(update_fields=['total_estimated_amount'])
         return instance
 
 
@@ -119,7 +123,7 @@ class OrderListSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'customer', 'customer_name', 'order_date', 'status',
-            'total_estimated_amount', 'total_amount', 'total_paid', 'due_amount',
+            'total_estimated_amount', 'discount', 'total_amount', 'total_paid', 'due_amount',
             'item_count', 'flag_size', 'quantity',
             'delivered_quantity', 'remaining_quantity', 'order_items', 'manual_serial_no'
         ]

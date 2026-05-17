@@ -38,7 +38,17 @@ const PrintableDirectSaleBill = ({ sale }) => {
     displayItems.push({ id: `empty-${displayItems.length}`, item_name: '', quantity: '', price_per_unit: '', total: '' });
   }
 
+  const discount = parseFloat(sale.discount) || 0;
+  const itemsSubtotal = items.reduce((sum, row) => sum + (parseFloat(row.total) || 0), 0);
   const grandTotal = parseFloat(sale.net_amount || 0);
+  const subtotalBeforeDiscount =
+    sale.total_amount != null && !Number.isNaN(parseFloat(sale.total_amount))
+      ? parseFloat(sale.total_amount)
+      : itemsSubtotal > 0
+        ? itemsSubtotal
+        : discount > 0
+          ? grandTotal + discount
+          : grandTotal;
   const totalPaid = parseFloat(sale.total_paid || 0);
   const remaining = Math.max(0, grandTotal - totalPaid);
 
@@ -126,6 +136,17 @@ const PrintableDirectSaleBill = ({ sale }) => {
 
         <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }} dir="rtl">
           <div style={{ border: '3px solid #0047AB', padding: '15px 40px', clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)', minWidth: '200px' }}>
+            {discount > 0 ? (
+              <>
+                <div style={{ fontSize: '14px', textAlign: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 'bold' }}>مجموع:</span>{' '}
+                  {subtotalBeforeDiscount.toFixed(0)}
+                </div>
+                <div style={{ fontSize: '14px', textAlign: 'center', marginBottom: '6px', color: '#b91c1c' }}>
+                  <span style={{ fontWeight: 'bold' }}>تخفیف:</span> {discount.toFixed(0)}
+                </div>
+              </>
+            ) : null}
             <div style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>مجموع پول:</div>
             <div style={{ fontSize: '20px', fontWeight: 'bold', textAlign: 'center', marginTop: '5px' }}>{grandTotal.toFixed(0)}</div>
           </div>

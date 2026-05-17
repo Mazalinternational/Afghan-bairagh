@@ -121,6 +121,8 @@ const CustomerLedger = () => {
 
       let fetchedSales = [];
       let fetchedDirectSales = [];
+      const customerId = parseInt(id, 10);
+      const customerNameNorm = (customerRes.data.name || '').trim().toLowerCase();
       try {
         const [salesRes, directRes] = await Promise.all([
           api.get(`/api/sales/?customer=${id}`),
@@ -130,6 +132,26 @@ const CustomerLedger = () => {
         fetchedDirectSales = Array.isArray(directRes.data) ? directRes.data : directRes.data.results || [];
       } catch (salesErr) {
         console.error('Error fetching sales for ledger:', salesErr);
+      }
+      try {
+        const allDirectRes = await api.get('/api/direct-sales/');
+        const allDirect = Array.isArray(allDirectRes.data)
+          ? allDirectRes.data
+          : allDirectRes.data.results || [];
+        allDirect.forEach((d) => {
+          const linkedById =
+            d.customer === customerId ||
+            (d.customer && typeof d.customer === 'object' && d.customer.id === customerId);
+          const linkedByName =
+            !d.customer &&
+            customerNameNorm &&
+            (d.customer_name || '').trim().toLowerCase() === customerNameNorm;
+          if ((linkedById || linkedByName) && !fetchedDirectSales.some((x) => x.id === d.id)) {
+            fetchedDirectSales.push(d);
+          }
+        });
+      } catch (directMergeErr) {
+        console.error('Error merging direct sales for ledger:', directMergeErr);
       }
       setSales(fetchedSales);
       setDirectSales(fetchedDirectSales);

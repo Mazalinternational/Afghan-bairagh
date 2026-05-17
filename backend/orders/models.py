@@ -35,6 +35,7 @@ class Order(models.Model):
     order_date = models.DateTimeField(auto_now_add=True, db_index=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending', db_index=True)
     total_estimated_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Estimated total for the order")
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     due = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Outstanding amount (total - payments)")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,9 +50,10 @@ class Order(models.Model):
         db_table = 'orders'
 
     def calculate_totals(self):
-        """Calculate total from order items"""
+        """Calculate total from order items minus discount"""
         items_total = self.order_items.aggregate(total=Sum('total'))['total'] or 0
-        self.total_estimated_amount = items_total
+        discount = self.discount or Decimal('0')
+        self.total_estimated_amount = max(Decimal('0'), items_total - discount)
 
     @property
     def total_paid(self):

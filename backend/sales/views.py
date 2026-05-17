@@ -207,7 +207,16 @@ class DirectSaleViewSet(viewsets.ModelViewSet):
         queryset = DirectSale.objects.select_related('customer').prefetch_related('items', 'payments').all()
         customer_id = self.request.query_params.get('customer')
         if customer_id:
-            queryset = queryset.filter(customer_id=customer_id)
+            from customers.models import Customer
+            customer = Customer.objects.filter(pk=customer_id).first()
+            if customer:
+                name = (customer.name or '').strip()
+                queryset = queryset.filter(
+                    Q(customer_id=customer_id)
+                    | Q(customer__isnull=True, customer_name__iexact=name)
+                )
+            else:
+                queryset = queryset.filter(customer_id=customer_id)
         return queryset
 
     @action(detail=True, methods=['post'])

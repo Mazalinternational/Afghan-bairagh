@@ -460,6 +460,9 @@ const SaleDetails = () => {
                   price_estimate: i.price_per_unit,
                   total: i.total,
                 })),
+                total_amount: sale.total_amount,
+                discount: sale.discount ?? 0,
+                tax: sale.tax ?? 0,
                 total_estimated_amount: sale.net_amount,
                 payments: sale.payments || [],
               }}
