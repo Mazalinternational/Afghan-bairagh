@@ -13,6 +13,19 @@ class Employee(models.Model):
     phone = models.CharField(max_length=15)
     address = models.TextField()
     salary = models.DecimalField(max_digits=10, decimal_places=2)
+    previous_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Salary rate before the latest change',
+    )
+    salary_effective_date = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text='Date from which the current salary amount applies',
+    )
     join_date = models.DateField(db_index=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -29,29 +42,46 @@ class Employee(models.Model):
     def net_salary(self):
         return self.salary - self.pending_advances
     
-    def get_pending_salary_months(self):
-        """Calculate how many months of salary are pending from join_date"""
+    def get_salary_for_month(self, year, month):
+        """Return the salary rate owed for a calendar month."""
+        effective = self.salary_effective_date or self.join_date
+        effective_month = date(effective.year, effective.month, 1)
+        target_month = date(year, month, 1)
+        if target_month < effective_month:
+            rate = self.previous_salary if self.previous_salary is not None else self.salary
+        else:
+            rate = self.salary
+        return rate
+
+    def _unpaid_month_keys(self):
+        """(year, month) pairs from join_date through today that have no salary payment."""
         if not self.is_active:
-            return 0
-        
+            return []
+
         today = date.today()
         join_date = self.join_date
-        
-        # Calculate months from join_date to today
-        months_pending = (today.year - join_date.year) * 12 + (today.month - join_date.month)
-        # If we're past the join day of the month, count current month
-        if today.day >= join_date.day:
-            months_pending += 1
-        
-        # Subtract months that have been paid
-        paid_months = self.salary_payments.count()
-        
-        return max(0, months_pending - paid_months)
-    
+        paid = set()
+        for payment in self.salary_payments.filter(period_type='monthly'):
+            paid.add((payment.month.year, payment.month.month))
+
+        keys = []
+        current = date(join_date.year, join_date.month, 1)
+        end = date(today.year, today.month, 1)
+        while current <= end:
+            key = (current.year, current.month)
+            if key not in paid:
+                keys.append(key)
+            if current.month == 12:
+                current = date(current.year + 1, 1, 1)
+            else:
+                current = date(current.year, current.month + 1, 1)
+        return keys
+
+    def get_pending_salary_months(self):
+        return len(self._unpaid_month_keys())
+
     def get_accumulated_salary(self):
-        """Calculate total accumulated salary from join_date"""
-        pending_months = self.get_pending_salary_months()
-        return self.salary * pending_months
+        return sum(self.get_salary_for_month(y, m) for y, m in self._unpaid_month_keys())
     
     def get_advance_months(self):
         """Calculate how many months of advance salary has been taken"""
@@ -213,7 +243,7 @@ class Loan(models.Model):
     
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='loans')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    loan_date = models.DateField(auto_now_add=True, db_index=True)
+    loan_date = models.DateField(default=timezone.localdate, db_index=True)
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Interest rate in percentage")
     repayment_plan = models.TextField(blank=True, help_text="Plan for repaying the loan")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active', db_index=True)

@@ -246,15 +246,14 @@ class LoanViewSet(viewsets.ModelViewSet):
         """Record a loan payment"""
         loan = self.get_object()
         payment_amount = request.data.get('amount', 0)
+        payment_notes = (request.data.get('notes') or '').strip()
         
         try:
-            # Convert to Decimal to match the model field type
             payment_amount = Decimal(str(payment_amount))
             if payment_amount <= 0:
                 return Response({'error': 'Payment amount must be greater than zero'}, 
                               status=status.HTTP_400_BAD_REQUEST)
             
-            # Ensure amount_paid is also Decimal
             loan.amount_paid = Decimal(str(loan.amount_paid or 0)) + payment_amount
             
             if loan.amount_paid >= loan.amount:
@@ -262,6 +261,13 @@ class LoanViewSet(viewsets.ModelViewSet):
                 loan.amount_paid = loan.amount
             elif loan.amount_paid > 0:
                 loan.status = 'Partial'
+
+            payment_line = (
+                f"[{timezone.localdate().isoformat()}] Repayment AFN {payment_amount:.2f}"
+            )
+            if payment_notes:
+                payment_line += f" — {payment_notes}"
+            loan.notes = f"{loan.notes}\n{payment_line}".strip() if loan.notes else payment_line
             
             loan.save()
             return Response(LoanSerializer(loan).data)

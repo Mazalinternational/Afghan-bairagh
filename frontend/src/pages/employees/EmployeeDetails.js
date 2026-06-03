@@ -66,6 +66,7 @@ const EmployeeDetails = () => {
   const [showLoanPaymentForm, setShowLoanPaymentForm] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState(null);
   const [loanPaymentAmount, setLoanPaymentAmount] = useState('');
+  const [loanPaymentNotes, setLoanPaymentNotes] = useState('');
 
   const formatAFN = (value) => `AFN ${(parseFloat(value) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   
@@ -469,7 +470,7 @@ const EmployeeDetails = () => {
           await api.post('/api/salary-payments/', {
             employee: id,
             month: monthDate,
-            base_salary: monthlySalary,
+            base_salary: getSalaryForMonth(monthData.year, monthData.month),
             notes: salaryData.notes || (monthsToPay.length > 1 ? t('employees.bulkPaymentMonthsNote', { count: monthsToPay.length }) : ''),
             period_type: 'monthly',
           });
@@ -801,6 +802,7 @@ const EmployeeDetails = () => {
     setSelectedLoanForPayment(loan);
     const remaining = parseFloat(loan.remaining_amount || (loan.amount - (loan.amount_paid || 0))) || 0;
     setLoanPaymentAmount(remaining.toFixed(2));
+    setLoanPaymentNotes('');
     setShowLoanPaymentForm(true);
   };
 
@@ -810,18 +812,34 @@ const EmployeeDetails = () => {
     
     try {
       await api.post(`/api/loans/${selectedLoanForPayment.id}/record_payment/`, {
-        amount: parseFloat(loanPaymentAmount)
+        amount: parseFloat(loanPaymentAmount),
+        notes: loanPaymentNotes.trim(),
       });
       addToast(t('employees.toast.loanPaymentRecorded'), 'success');
       setShowLoanPaymentForm(false);
       setSelectedLoanForPayment(null);
       setLoanPaymentAmount('');
+      setLoanPaymentNotes('');
       fetchEmployeeData();
     } catch (err) {
       console.error('Error recording loan payment:', err);
       addToast(t('employees.toast.loanPaymentFailed'), 'error');
     }
   };
+
+  const getSalaryForMonth = (year, month) => {
+    if (!employee) return 0;
+    const effective = new Date(employee.salary_effective_date || employee.join_date);
+    const effectiveMonth = new Date(effective.getFullYear(), effective.getMonth(), 1);
+    const targetMonth = new Date(year, month - 1, 1);
+    if (targetMonth < effectiveMonth) {
+      return parseFloat(employee.previous_salary ?? employee.salary) || 0;
+    }
+    return parseFloat(employee.salary) || 0;
+  };
+
+  const sumSalaryForMonths = (months) =>
+    months.reduce((sum, m) => sum + getSalaryForMonth(m.year, m.month), 0);
 
   const getUnpaidMonths = () => {
     if (!employee || !employee.join_date) return [];
@@ -862,26 +880,7 @@ const EmployeeDetails = () => {
 
   const calculateBalance = () => {
     if (!employee || !employee.join_date) return 0;
-    
-    const joinDate = new Date(employee.join_date);
-    const today = new Date();
-    
-    // Calculate months from join_date to today
-    const monthsDiff = (today.getFullYear() - joinDate.getFullYear()) * 12 + 
-                       (today.getMonth() - joinDate.getMonth());
-    
-    // If we're past the join day of the month, count current month
-    const monthsWorked = today.getDate() >= joinDate.getDate() ? monthsDiff + 1 : monthsDiff;
-    
-    // Calculate total expected salary
-    const monthlySalary = parseFloat(employee.salary) || 0;
-    const totalExpectedSalary = monthlySalary * Math.max(0, monthsWorked);
-    
-    // Calculate total salary paid
-    const totalSalaryPaid = salaryPayments.reduce((sum, s) => sum + (parseFloat(s.base_salary) || 0), 0);
-    
-    // Balance = Expected - Paid
-    return Math.max(0, totalExpectedSalary - totalSalaryPaid);
+    return sumSalaryForMonths(getUnpaidMonths());
   };
 
   const calculateTotals = () => {
@@ -1911,16 +1910,16 @@ const EmployeeDetails = () => {
                     </span>
                   </label>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6">
-                    {t('employees.totalGross', { amount: formatAFN(getUnpaidMonths().length * (parseFloat(employee.salary) || 0)) })}
+                    {t('employees.totalGross', { amount: formatAFN(sumSalaryForMonths(getUnpaidMonths())) })}
                     {totals.pendingAdvances > 0 && (
                       <>
                         <br />
                         <span className="text-orange-600 dark:text-orange-400">
-                              {t('employees.pendingAdvancesWillDeduct', { amount: formatAFN(Math.min(totals.pendingAdvances, getUnpaidMonths().length * (parseFloat(employee.salary) || 0))) })}
+                              {t('employees.pendingAdvancesWillDeduct', { amount: formatAFN(Math.min(totals.pendingAdvances, sumSalaryForMonths(getUnpaidMonths()))) })}
                         </span>
                         <br />
                         <span className="text-green-600 dark:text-green-400 font-medium">
-                              {t('employees.netAmount', { amount: formatAFN(Math.max(0, (getUnpaidMonths().length * (parseFloat(employee.salary) || 0)) - Math.min(totals.pendingAdvances, getUnpaidMonths().length * (parseFloat(employee.salary) || 0)))) })}
+                              {t('employees.netAmount', { amount: formatAFN(Math.max(0, sumSalaryForMonths(getUnpaidMonths()) - Math.min(totals.pendingAdvances, sumSalaryForMonths(getUnpaidMonths())))) })}
                         </span>
                       </>
                     )}
@@ -1962,7 +1961,7 @@ const EmployeeDetails = () => {
                               {monthData.label}
                             </span>
                             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                              {formatAFN(employee.salary)}
+                              {formatAFN(getSalaryForMonth(monthData.year, monthData.month))}
                             </span>
                           </label>
                         ))}
@@ -1974,16 +1973,16 @@ const EmployeeDetails = () => {
                       <p className="text-xs text-gray-700 dark:text-gray-300">
                         {t('employees.selectedMonths', { count: selectedMonths.length })}
                         <br />
-                        <span>{t('employees.grossAmount', { amount: formatAFN(selectedMonths.length * (parseFloat(employee.salary) || 0)) })}</span>
+                        <span>{t('employees.grossAmount', { amount: formatAFN(sumSalaryForMonths(getUnpaidMonths().filter(m => selectedMonths.includes(m.monthKey)))) })}</span>
                         {totals.pendingAdvances > 0 && (
                           <>
                             <br />
                             <span className="text-orange-600 dark:text-orange-400">
-                              {t('employees.pendingAdvancesWillDeduct', { amount: formatAFN(Math.min(totals.pendingAdvances, selectedMonths.length * (parseFloat(employee.salary) || 0))) })}
+                              {t('employees.pendingAdvancesWillDeduct', { amount: formatAFN(Math.min(totals.pendingAdvances, sumSalaryForMonths(getUnpaidMonths().filter(m => selectedMonths.includes(m.monthKey))))) })}
                             </span>
                             <br />
                             <span className="text-green-600 dark:text-green-400 font-medium">
-                              {t('employees.netAmount', { amount: formatAFN(Math.max(0, (selectedMonths.length * (parseFloat(employee.salary) || 0)) - Math.min(totals.pendingAdvances, selectedMonths.length * (parseFloat(employee.salary) || 0)))) })}
+                              {t('employees.netAmount', { amount: formatAFN(Math.max(0, sumSalaryForMonths(getUnpaidMonths().filter(m => selectedMonths.includes(m.monthKey))) - Math.min(totals.pendingAdvances, sumSalaryForMonths(getUnpaidMonths().filter(m => selectedMonths.includes(m.monthKey)))))) })}
                             </span>
                           </>
                         )}
@@ -2213,12 +2212,23 @@ const EmployeeDetails = () => {
                   required
                 />
               </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{t('employees.notes')}</label>
+                <textarea
+                  value={loanPaymentNotes}
+                  onChange={(e) => setLoanPaymentNotes(e.target.value)}
+                  rows={2}
+                  className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded focus:ring-2 focus:ring-blue-500"
+                  placeholder={t('employees.additionalNotes')}
+                />
+              </div>
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setShowLoanPaymentForm(false);
                     setSelectedLoanForPayment(null);
+                    setLoanPaymentNotes('');
                   }}
                   className="flex-1 px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded text-xs hover:bg-gray-50 dark:hover:bg-gray-700"
                 >

@@ -16,7 +16,24 @@ class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = '__all__'
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'previous_salary', 'salary_effective_date']
+
+    def create(self, validated_data):
+        join_date = validated_data.get('join_date')
+        salary = validated_data.get('salary')
+        if join_date and not validated_data.get('salary_effective_date'):
+            validated_data['salary_effective_date'] = join_date
+        if salary is not None and validated_data.get('previous_salary') is None:
+            validated_data['previous_salary'] = salary
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        new_salary = validated_data.get('salary')
+        if new_salary is not None and new_salary != instance.salary:
+            validated_data['previous_salary'] = instance.salary
+            validated_data['salary_effective_date'] = timezone.localdate()
+        return super().update(instance, validated_data)
     
     def get_pending_salary_months(self, obj):
         return obj.get_pending_salary_months()
@@ -124,7 +141,12 @@ class LoanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Loan
         fields = '__all__'
-        read_only_fields = ['loan_date', 'created_at']
+        read_only_fields = ['created_at']
+
+    def create(self, validated_data):
+        if not validated_data.get('loan_date'):
+            validated_data['loan_date'] = timezone.localdate()
+        return super().create(validated_data)
 
 
 class TipSerializer(serializers.ModelSerializer):
