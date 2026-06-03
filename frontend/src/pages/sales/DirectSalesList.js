@@ -84,6 +84,7 @@ const DirectSalesList = () => {
     const matchesFilter = filter === 'all' || (filter === 'unpaid' && sale.payment_status !== 'Paid');
     const matchesSearch = !searchQuery || 
       sale.customer_name_display?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (sale.customer_phone_display || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (sale.manual_serial_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       sale.id.toString().includes(searchQuery);
     return matchesFilter && matchesSearch;
@@ -196,8 +197,9 @@ const DirectSalesList = () => {
                           {sale.payment_status === 'Paid' ? t('sales.paid') : sale.payment_status === 'Partial' ? t('sales.partial') : t('sales.unpaid')}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-1 text-[10px] text-gray-600 dark:text-gray-400">
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-1 text-[10px] text-gray-600 dark:text-gray-400">
                         <div><span className="font-medium">{t('common.date')}:</span><p>{formatDate(sale.sale_date)}</p></div>
+                        <div><span className="font-medium">{t('common.phone')}:</span><p>{sale.customer_phone_display || '—'}</p></div>
                         <div><span className="font-medium">{t('common.items')}:</span><p>{sale.item_count}</p></div>
                         <div><span className="font-medium">{t('sales.totalAmount')}:</span><p className="text-blue-600 dark:text-blue-400 font-semibold">AFN {parseFloat(sale.net_amount).toFixed(2)}</p></div>
                         <div><span className="font-medium">{t('common.cost')}:</span><p className="text-orange-600 dark:text-orange-400">AFN {parseFloat(sale.cost_amount).toFixed(2)}</p></div>

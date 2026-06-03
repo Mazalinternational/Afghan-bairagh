@@ -69,6 +69,22 @@ function inventoryFilterUsesFallback(allItems, productType) {
   return strict.length === 0;
 }
 
+/** Name/SKU/category search across finished products (ignores product type while searching). */
+function filterInventoryItemsForOrderRow(catalog, productType, searchQuery) {
+  const list = Array.isArray(catalog) ? catalog : [];
+  const finished = list.filter((i) => i.item_type === 'finished_product');
+  const q = (searchQuery || '').trim().toLowerCase();
+  if (!q) {
+    return filterInventoryForOrderLine(catalog, productType);
+  }
+  return finished.filter((i) => {
+    const name = (i.name || '').toLowerCase();
+    const sku = (i.sku || '').toLowerCase();
+    const category = (i.category_name || '').toLowerCase();
+    return name.includes(q) || sku.includes(q) || category.includes(q);
+  });
+}
+
 function inventoryFieldStr(inv, field) {
   if (!inv || inv[field] == null || inv[field] === '') return '';
   return String(inv[field]);
@@ -120,6 +136,8 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
     quantity: qtyStr,
     purchase_price: purchase,
     price_per_unit: priceStr,
+    itemSearch: inv?.name || '',
+    showItemDropdown: false,
     isCollapsed: false
   };
 }
@@ -164,6 +182,8 @@ const CreateOrder = () => {
     quantity: '',
     purchase_price: '',
     price_per_unit: '',
+    itemSearch: '',
+    showItemDropdown: false,
     isCollapsed: false
   }]);
   const [formData, setFormData] = useState({
@@ -460,6 +480,8 @@ const CreateOrder = () => {
       quantity: '',
       purchase_price: '',
       price_per_unit: '',
+      itemSearch: '',
+      showItemDropdown: false,
       isCollapsed: false
     }]);
   };
@@ -489,20 +511,63 @@ const CreateOrder = () => {
     }
   };
 
-  const setOrderItemSelection = (index, val) => {
-    const list = Array.isArray(items) ? items : [];
-    const selectedItem = val ? list.find((i) => String(i.id) === val) || null : null;
+  const applyOrderItemInventory = (index, selectedItem) => {
     setOrderItems((prev) => {
       const next = [...prev];
-      next[index] = {
-        ...next[index],
-        itemId: val,
-        item: selectedItem,
-        purchase_price: selectedItem ? purchaseUnitCostStringFromInventory(selectedItem) : '',
-        price_per_unit: selectedItem ? inventoryFieldStr(selectedItem, 'unit_price') : next[index].price_per_unit
-      };
+      const row = { ...next[index] };
+      if (selectedItem) {
+        row.itemId = String(selectedItem.id);
+        row.item = selectedItem;
+        row.purchase_price = purchaseUnitCostStringFromInventory(selectedItem);
+        row.price_per_unit = inventoryFieldStr(selectedItem, 'unit_price');
+        const inferredType = inferProductTypeFromInventory(selectedItem);
+        row.product_type = inferredType;
+        if (inferredType === 'flag') {
+          row.flag_stand_type = '';
+        } else {
+          row.flag_size = '';
+        }
+        row.itemSearch = selectedItem.name || '';
+        row.showItemDropdown = false;
+      } else {
+        row.itemId = '';
+        row.item = null;
+        row.purchase_price = '';
+        row.itemSearch = '';
+        row.showItemDropdown = false;
+      }
+      next[index] = row;
       return next;
     });
+    if (errors[`item_${index}_item`]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[`item_${index}_item`];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleOrderItemSearchChange = (index, value) => {
+    setOrderItems((prev) => {
+      const next = [...prev];
+      const row = { ...next[index], itemSearch: value, showItemDropdown: true };
+      if (row.item && value.trim() !== (row.item.name || '').trim()) {
+        row.item = null;
+        row.itemId = '';
+        row.purchase_price = '';
+      }
+      next[index] = row;
+      return next;
+    });
+  };
+
+  const selectOrderItemFromSearch = (index, inv) => {
+    applyOrderItemInventory(index, inv);
+  };
+
+  const clearOrderItemSearch = (index) => {
+    applyOrderItemInventory(index, null);
   };
 
   const validateForm = () => {
@@ -1041,25 +1106,77 @@ const CreateOrder = () => {
                         {fetchError || t('orders.noItemsUseManual')}
                       </div>
                     ) : (
-                      <select
-                        value={item.itemId != null && item.itemId !== '' ? String(item.itemId) : ''}
-                        onChange={(e) => setOrderItemSelection(index, e.target.value)}
-                        className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                          errors[`item_${index}_item`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                        }`}
-                      >
-                        <option value="">{t('orders.selectItem')}</option>
-                        {filterInventoryForOrderLine(items, item.product_type || 'flag').map((i) => (
-                          <option key={i.id} value={String(i.id)}>
-                            {t('orders.itemOptionStock', {
-                              name: i.name,
-                              sku: i.sku || t('common.notAvailable'),
-                              press: i.press_stock ?? i.current_stock ?? 0,
-                              home: i.home_stock ?? 0
-                            })}
-                          </option>
-                        ))}
-                      </select>
+                      <div>
+                        <div className="flex gap-2 items-stretch">
+                          <div className="relative flex-1 min-w-0">
+                            <MagnifyingGlassIcon className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none z-10" />
+                            <input
+                              type="text"
+                              placeholder={t('orders.searchItem')}
+                              value={item.itemSearch || ''}
+                              onChange={(e) => handleOrderItemSearchChange(index, e.target.value)}
+                              onFocus={() => updateOrderItem(index, 'showItemDropdown', true)}
+                              onBlur={() => {
+                                setTimeout(() => {
+                                  updateOrderItem(index, 'showItemDropdown', false);
+                                }, 150);
+                              }}
+                              className={`w-full pl-7 pr-2 py-1.5 text-xs sm:text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-200 ${
+                                errors[`item_${index}_item`] ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                              }`}
+                            />
+                            {item.showItemDropdown && (item.itemSearch || '').trim() && (() => {
+                              const matches = filterInventoryItemsForOrderRow(
+                                items,
+                                item.product_type || 'flag',
+                                item.itemSearch
+                              );
+                              return (
+                                <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                  {matches.length > 0 ? (
+                                    matches.map((inv) => (
+                                      <button
+                                        key={inv.id}
+                                        type="button"
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => selectOrderItemFromSearch(index, inv)}
+                                        className="w-full px-2 sm:px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0 text-xs sm:text-sm text-gray-900 dark:text-white"
+                                      >
+                                        {t('orders.itemOptionStock', {
+                                          name: inv.name,
+                                          sku: inv.sku || t('common.notAvailable'),
+                                          press: inv.press_stock ?? inv.current_stock ?? 0,
+                                          home: inv.home_stock ?? 0
+                                        })}
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center">
+                                      {t('orders.noItemsMatchSearch')}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          {((item.itemSearch || '').trim() || item.item) && (
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => clearOrderItemSearch(index)}
+                              className="btn-form-red shrink-0 self-stretch text-xs px-4"
+                            >
+                              {t('common.clear')}
+                            </button>
+                          )}
+                        </div>
+                        {item.item && (
+                          <p className="mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-green-700 dark:text-green-400">
+                            <CheckCircleIcon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                            {t('orders.itemSelected', { name: item.item.name })}
+                          </p>
+                        )}
+                      </div>
                     )}
                     {errors[`item_${index}_item`] && (
                       <p className="mt-1 text-[10px] sm:text-xs text-red-600 dark:text-red-400">{errors[`item_${index}_item`]}</p>

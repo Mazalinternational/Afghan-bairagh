@@ -26,6 +26,7 @@ class Employee(models.Model):
         db_index=True,
         help_text='Date from which the current salary amount applies',
     )
+    salary_notes = models.TextField(blank=True, help_text='History of salary changes')
     join_date = models.DateField(db_index=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -25,14 +25,28 @@ class EmployeeSerializer(serializers.ModelSerializer):
             validated_data['salary_effective_date'] = join_date
         if salary is not None and validated_data.get('previous_salary') is None:
             validated_data['previous_salary'] = salary
+        if salary is not None and join_date and not validated_data.get('salary_notes'):
+            validated_data['salary_notes'] = (
+                f'From {join_date.isoformat()} monthly salary: AFN {float(salary):.2f}.'
+            )
         return super().create(validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
         new_salary = validated_data.get('salary')
         if new_salary is not None and new_salary != instance.salary:
-            validated_data['previous_salary'] = instance.salary
-            validated_data['salary_effective_date'] = timezone.localdate()
+            old_salary = instance.salary
+            effective = timezone.localdate()
+            change_word = 'increased' if new_salary > old_salary else 'decreased'
+            prior_from = instance.salary_effective_date or instance.join_date
+            line = (
+                f'From {prior_from.isoformat()} salary was AFN {float(old_salary):.2f}. '
+                f'From {effective.isoformat()} salary {change_word} to AFN {float(new_salary):.2f}.'
+            )
+            existing = (instance.salary_notes or '').strip()
+            validated_data['salary_notes'] = f'{existing}\n{line}'.strip() if existing else line
+            validated_data['previous_salary'] = old_salary
+            validated_data['salary_effective_date'] = effective
         return super().update(instance, validated_data)
     
     def get_pending_salary_months(self, obj):

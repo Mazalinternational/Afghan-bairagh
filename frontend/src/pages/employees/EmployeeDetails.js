@@ -1128,7 +1128,24 @@ const EmployeeDetails = () => {
                     <div>
                       <label className="text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-400">{t('employees.monthlySalary')}</label>
                       <p className="text-[10px] sm:text-xs text-gray-900 dark:text-white">{formatAFN(employee.salary)}</p>
+                      {employee.salary_effective_date && (
+                        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">
+                          {t('employees.salaryEffectiveFrom', {
+                            date: new Date(employee.salary_effective_date).toLocaleDateString(dateLocale),
+                          })}
+                        </p>
+                      )}
                     </div>
+                    {employee.salary_notes && String(employee.salary_notes).trim() && (
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {t('employees.salaryHistory')}
+                        </label>
+                        <p className="text-[10px] sm:text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap mt-0.5 bg-gray-50 dark:bg-gray-900/40 rounded p-2 border border-gray-200 dark:border-gray-700">
+                          {employee.salary_notes}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <label className="text-[10px] sm:text-xs font-medium text-gray-600 dark:text-gray-400">{t('employees.joinDate')}</label>
                       <p className="text-[10px] sm:text-xs text-gray-900 dark:text-white">
@@ -1443,6 +1460,7 @@ const EmployeeDetails = () => {
                       <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs">{t('employees.remaining')}</th>
                       <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs">{t('employees.interestRate')}</th>
                       <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs">{t('employees.repaymentPlan')}</th>
+                      <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs min-w-[120px]">{t('employees.notes')}</th>
                       <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs">{t('common.status')}</th>
                       <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left text-[10px] sm:text-xs">{t('common.actions')}</th>
                     </tr>
@@ -1450,7 +1468,7 @@ const EmployeeDetails = () => {
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                     {loans.length === 0 ? (
                       <tr>
-                        <td colSpan="8" className="px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                        <td colSpan="9" className="px-2 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
                           {t('employees.noLoansRecorded')}
                         </td>
                       </tr>
@@ -1469,6 +1487,9 @@ const EmployeeDetails = () => {
                             </td>
                             <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-900 dark:text-white">{loan.interest_rate ? `${loan.interest_rate}%` : '0%'}</td>
                             <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-900 dark:text-white max-w-xs truncate">{loan.repayment_plan || '-'}</td>
+                            <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 max-w-[200px]">
+                              <span className="whitespace-pre-wrap break-words block">{loan.notes?.trim() ? loan.notes : '—'}</span>
+                            </td>
                             <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs">
                               <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-xs font-medium ${
                                 loan.status === 'Paid' 
@@ -1823,6 +1844,32 @@ const EmployeeDetails = () => {
               </button>
             </div>
             <form onSubmit={handleCreateSalary} className="space-y-2 sm:space-y-3">
+              <div className="bg-gray-50 dark:bg-gray-700 rounded p-2 border border-gray-200 dark:border-gray-600">
+                <p className="text-xs text-gray-700 dark:text-gray-300">
+                  <strong>{t('employees.monthlySalaryLabel')}</strong> {formatAFN(employee.salary)}
+                  {employee.salary_effective_date && (
+                    <>
+                      <br />
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        {t('employees.salaryEffectiveFrom', {
+                          date: new Date(employee.salary_effective_date).toLocaleDateString(dateLocale),
+                        })}
+                      </span>
+                    </>
+                  )}
+                </p>
+                {employee.salary_notes && String(employee.salary_notes).trim() && (
+                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                    <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                      {t('employees.salaryHistory')}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                      {employee.salary_notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Period Type Toggle */}
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{t('employees.salaryType')}:</span>
@@ -2001,19 +2048,14 @@ const EmployeeDetails = () => {
                 </div>
               )}
 
-              {/* Salary Info */}
-              <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
-                <p className="text-xs text-gray-700 dark:text-gray-300">
-                  <strong>{t('employees.monthlySalaryLabel')}</strong> {formatAFN(employee.salary)}
-                  {salaryData.period_type === 'weekly' && (
-                    <>
-                      <br />
-                      <strong>{t('employees.weeklyApproxLabel')}</strong>{' '}
-                      {formatAFN(parseFloat(employee.salary || 0) / 4)}
-                    </>
-                  )}
-                </p>
-              </div>
+              {salaryData.period_type === 'weekly' && (
+                <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    <strong>{t('employees.weeklyApproxLabel')}</strong>{' '}
+                    {formatAFN(parseFloat(employee.salary || 0) / 4)}
+                  </p>
+                </div>
+              )}
 
               {/* Notes */}
               <div>

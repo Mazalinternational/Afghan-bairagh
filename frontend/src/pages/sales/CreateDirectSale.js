@@ -40,6 +40,7 @@ const CreateDirectSale = () => {
   const [formData, setFormData] = useState({
     customer: '',
     customer_name: '',
+    customer_phone: '',
     sale_date: getTodayDateString(),
     show_date_on_bill: true,
     discount: 0,
@@ -84,6 +85,7 @@ const CreateDirectSale = () => {
       setFormData({
         customer: sale.customer || '',
         customer_name: sale.customer_name || sale.customer_name_display || '',
+        customer_phone: sale.customer_phone || '',
         sale_date: toDateInputValue(sale.sale_date) || getTodayDateString(),
         show_date_on_bill: sale.show_date_on_bill !== false,
         discount: sale.discount || 0,
@@ -217,6 +219,7 @@ const CreateDirectSale = () => {
       const payload = {
         customer: formData.customer ? parseLocaleInt(formData.customer) : null,
         customer_name: formData.customer_name,
+        customer_phone: (formData.customer_phone || '').trim(),
         sale_date: formData.sale_date ? `${formData.sale_date}T00:00:00` : null,
         show_date_on_bill: formData.show_date_on_bill,
         discount: parseLocaleFloat(formData.discount) || 0,
@@ -296,7 +299,7 @@ const CreateDirectSale = () => {
             <h2 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">
               {t('sales.customerInformation')}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('sales.customerNameRequiredLabel')}
@@ -328,6 +331,7 @@ const CreateDirectSale = () => {
                         ...formData,
                         customer: raw,
                         customer_name: selectedCustomer.name,
+                        customer_phone: selectedCustomer.phone || '',
                       });
                     }
                   }}
@@ -340,6 +344,18 @@ const CreateDirectSale = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('common.phone')}
+                </label>
+                <input
+                  type="tel"
+                  value={formData.customer_phone}
+                  onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={t('employees.enterPhone')}
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">

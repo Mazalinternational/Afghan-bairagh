@@ -167,7 +167,7 @@ class DirectSaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = DirectSale
         fields = [
-            'id', 'customer', 'customer_name', 'customer_name_display', 'sale_date',
+            'id', 'customer', 'customer_name', 'customer_phone', 'customer_name_display', 'sale_date',
             'show_date_on_bill', 'total_amount', 'cost_amount', 'discount', 'net_amount', 'profit', 'due',
             'manual_serial_no', 'status', 'payment_status', 'notes', 'items', 'payments', 'total_paid',
             'created_at', 'updated_at'
@@ -176,6 +176,17 @@ class DirectSaleSerializer(serializers.ModelSerializer):
     
     def get_customer_name_display(self, obj):
         return obj.customer.name if obj.customer else obj.customer_name
+
+    def validate(self, data):
+        customer = data.get('customer')
+        if customer is None and self.instance:
+            customer = self.instance.customer
+        if customer and not (data.get('customer_phone') or '').strip():
+            from customers.models import Customer
+            cust = customer if hasattr(customer, 'phone') else Customer.objects.filter(pk=customer).first()
+            if cust and cust.phone:
+                data['customer_phone'] = cust.phone
+        return data
     
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
@@ -208,19 +219,27 @@ class DirectSaleSerializer(serializers.ModelSerializer):
 
 class DirectSaleListSerializer(serializers.ModelSerializer):
     customer_name_display = serializers.SerializerMethodField()
+    customer_phone_display = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
     total_paid = serializers.SerializerMethodField()
 
     class Meta:
         model = DirectSale
         fields = [
-            'id', 'customer', 'customer_name_display', 'sale_date', 'total_amount', 'cost_amount',
+            'id', 'customer', 'customer_name_display', 'customer_phone_display', 'sale_date', 'total_amount', 'cost_amount',
             'show_date_on_bill', 'manual_serial_no', 'net_amount', 'profit', 'due', 'status', 'payment_status', 'item_count',
             'total_paid', 'created_at',
         ]
 
     def get_customer_name_display(self, obj):
         return obj.customer.name if obj.customer else obj.customer_name
+
+    def get_customer_phone_display(self, obj):
+        if obj.customer_phone:
+            return obj.customer_phone
+        if obj.customer_id and obj.customer:
+            return obj.customer.phone or ''
+        return ''
 
     def get_item_count(self, obj):
         return obj.items.count()

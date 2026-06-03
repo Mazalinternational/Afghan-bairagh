@@ -200,6 +200,10 @@ const DirectSaleDetails = () => {
                   <span className="text-gray-600 dark:text-gray-400">{t('directSales.date')}:</span>
                   <span className="font-medium">{formatDate(sale.sale_date)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">{t('common.phone')}:</span>
+                  <span className="font-medium">{sale.customer_phone || sale.customer_phone_display || '—'}</span>
+                </div>
                 {(sale.manual_serial_no || '').trim() !== '' && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">{t('customers.manualSerialNo')}:</span>

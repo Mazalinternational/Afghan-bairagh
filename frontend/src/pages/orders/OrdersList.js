@@ -34,6 +34,7 @@ const OrdersList = () => {
   const [filters, setFilters] = useState({
     status: '',
     customer: '',
+    item: '',
     startDate: '',
     endDate: ''
   });
@@ -86,6 +87,25 @@ const OrdersList = () => {
       filtered = filtered.filter(order => 
         (order.customer?.name || order.customer_name || '').toLowerCase().includes(filters.customer.toLowerCase())
       );
+    }
+    if (filters.item) {
+      const q = filters.item.toLowerCase().trim();
+      filtered = filtered.filter((order) => {
+        const items = order.order_items || [];
+        if (items.length > 0) {
+          return items.some((row) => {
+            const name = (
+              row.item_name ||
+              row.manual_item_name ||
+              row.item?.name ||
+              ''
+            ).toLowerCase();
+            return name.includes(q);
+          });
+        }
+        const legacy = (order.item_name || order.item?.name || '').toLowerCase();
+        return legacy.includes(q);
+      });
     }
     if (filters.startDate) {
       filtered = filtered.filter(order => 
@@ -376,7 +396,7 @@ const OrdersList = () => {
           <FunnelIcon className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
           <h3 className="text-[10px] font-semibold text-gray-900 dark:text-white">{t('orders.filters')}</h3>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <div>
             <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('orders.status')}</label>
             <select
@@ -402,6 +422,20 @@ const OrdersList = () => {
                 placeholder={t('orders.searchCustomer')}
                 value={filters.customer}
                 onChange={(e) => handleFilterChange('customer', e.target.value)}
+                className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-300 mb-1">{t('orders.searchItem')}</label>
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2 top-2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder={t('orders.searchItem')}
+                value={filters.item}
+                onChange={(e) => handleFilterChange('item', e.target.value)}
                 className="w-full pl-7 pr-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>

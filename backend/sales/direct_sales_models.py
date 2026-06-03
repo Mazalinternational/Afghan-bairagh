@@ -25,6 +25,7 @@ class DirectSale(models.Model):
 
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name='direct_sales', null=True, blank=True)
     customer_name = models.CharField(max_length=255, default='', help_text="Customer name if not in system")
+    customer_phone = models.CharField(max_length=15, blank=True, default='')
     sale_date = models.DateTimeField(null=True, blank=True, default=timezone.now, db_index=True)
     show_date_on_bill = models.BooleanField(default=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
