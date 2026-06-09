@@ -1,6 +1,5 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from decimal import Decimal
 from django.db.models import Sum, Count, Q, F, Case, When, DecimalField, Max, Avg, Min, Value, ExpressionWrapper
 from django.db.models.functions import Coalesce
@@ -82,8 +81,6 @@ def _delivered_order_cogs_for_period(start_datetime, end_datetime):
 
 
 class AdminDashboardView(APIView):
-    permission_classes = [AllowAny]
-
     def get(self, request):
         try:
             # Get period parameter (daily, weekly, monthly, yearly)
@@ -594,8 +591,6 @@ class AdminDashboardView(APIView):
 
 class DashboardSummaryView(APIView):
     """Quick summary for dashboard widgets with enhanced metrics"""
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         summary = {
             'orders': {
@@ -677,8 +672,6 @@ class DashboardSummaryView(APIView):
 
 class FinancialAnalyticsView(APIView):
     """Detailed financial analytics and trends"""
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         # Get last 6 months data for trends
         months_data = []

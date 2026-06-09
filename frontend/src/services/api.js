@@ -97,8 +97,6 @@ api.interceptors.response.use(
       getAccessToken()
     ) {
       originalRequest._authRetry = true;
-      originalRequest._401RetryUsedTestToken =
-        getAccessToken() === 'test-token';
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       sessionStorage.removeItem('token');
@@ -109,17 +107,12 @@ api.interceptors.response.use(
       return api(originalRequest);
     }
 
-    // Only force logout after the unauthenticated retry still returned 401.
-    // Previously: `token !== 'test-token'` was true when token was already removed,
-    // so the first 401 on protected routes (e.g. blob backup) triggered an immediate redirect to /login.
     if (status === 401 && originalRequest?._authRetry) {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('refreshToken');
-      if (!originalRequest._401RetryUsedTestToken) {
-        window.location.href = '/login';
-      }
+      window.location.href = '/login';
       return Promise.reject(error);
     }
 

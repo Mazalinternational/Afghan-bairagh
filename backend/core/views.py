@@ -5,7 +5,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import User, SystemSettings
 from .serializers import RegisterSerializer, UserSerializer, UserManagementSerializer, SystemSettingsSerializer
-from .permissions import IsOwnerOrAdmin
+from .permissions import IsAdmin, IsOwnerOrAdmin
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -23,7 +23,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserManagementSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAdmin]
 
 class IsAdminUser(permissions.BasePermission):
     def has_permission(self, request, view):

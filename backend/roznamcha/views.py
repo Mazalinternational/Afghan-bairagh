@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Sum, Count
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,7 +18,6 @@ class RozNamchaPagination(PageNumberPagination):
 class RozNamchaViewSet(viewsets.ModelViewSet):
     queryset = RozNamcha.objects.all()
     serializer_class = RozNamchaSerializer
-    permission_classes = [AllowAny]
     pagination_class = RozNamchaPagination
     http_method_names = ['get', 'head', 'options']  # Read-only: removed post, put, patch, delete
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]

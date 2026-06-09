@@ -17,7 +17,6 @@ from .serializers import (
 class FlagDesignTypeViewSet(viewsets.ModelViewSet):
     queryset = FlagDesignType.objects.all()
     serializer_class = FlagDesignTypeSerializer
-    permission_classes = []  # AllowAny by default
 
 
 class CategoryViewSet(viewsets.ModelViewSet):

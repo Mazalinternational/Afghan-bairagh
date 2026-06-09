@@ -1,6 +1,5 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from django.db.models import Sum, Count, Q, F, Avg
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -15,8 +14,6 @@ from printing.models import PrintingJob
 
 
 class OrdersWithDuesReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of orders with outstanding dues"""
         orders = Order.objects.filter(due__gt=0).select_related('customer')
@@ -60,8 +57,6 @@ class OrdersWithDuesReport(APIView):
 
 
 class SuppliersWithBalanceReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of suppliers with outstanding balance"""
         suppliers = Supplier.objects.annotate(
@@ -109,8 +104,6 @@ class SuppliersWithBalanceReport(APIView):
 
 
 class LowStockReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of items with low stock"""
         items = Item.objects.filter(current_stock__lte=F('minimum_stock'))
@@ -142,8 +135,6 @@ class LowStockReport(APIView):
 
 
 class PendingAdvancesReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of pending employee advances"""
         advances = Advance.objects.filter(status='Pending').select_related('employee')
@@ -181,8 +172,6 @@ class PendingAdvancesReport(APIView):
 
 
 class MonthlyExpensesReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of monthly expenses by category"""
         month = int(request.query_params.get('month', timezone.now().month))
@@ -210,8 +199,6 @@ class MonthlyExpensesReport(APIView):
 
 
 class EmployeeSalaryReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of employee net salary with advances"""
         employees = Employee.objects.filter(is_active=True)
@@ -243,8 +230,6 @@ class EmployeeSalaryReport(APIView):
 
 
 class PurchasePaymentStatusReport(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Report of purchases grouped by payment status"""
         status_filter = request.query_params.get('status')
@@ -284,8 +269,6 @@ class PurchasePaymentStatusReport(APIView):
 
 
 class DetailedReportView(APIView):
-    permission_classes = [AllowAny]
-    
     def get(self, request):
         """Comprehensive detailed report with daily, weekly, monthly, yearly, and date-range filters"""
         period = request.query_params.get('period', 'daily')  # daily, weekly, monthly, yearly, custom

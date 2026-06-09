@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.core.exceptions import ValidationError
@@ -14,7 +13,6 @@ from inventory.models import Item
 
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -323,7 +321,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class PaymentViewSet(viewsets.ModelViewSet):
     serializer_class = PaymentSerializer
-    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = Payment.objects.select_related('order', 'order__customer').all()

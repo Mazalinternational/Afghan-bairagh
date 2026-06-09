@@ -2,7 +2,6 @@ from decimal import Decimal, InvalidOperation
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from django.core.cache import cache
 from django.db.models import Q, Sum
 from .models import Customer, CustomerBalancePayment
@@ -11,7 +10,6 @@ from .serializers import CustomerSerializer, CustomerCreateSerializer, CustomerB
 
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
-    permission_classes = [AllowAny]
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     def get_serializer_class(self):
@@ -172,7 +170,6 @@ class CustomerViewSet(viewsets.ModelViewSet):
 class CustomerBalancePaymentViewSet(viewsets.ModelViewSet):
     queryset = CustomerBalancePayment.objects.all()
     serializer_class = CustomerBalancePaymentSerializer
-    permission_classes = [AllowAny]
 
     def _invalidate_customer_cache(self, customer_id):
         cache.delete(f"customer_{customer_id}")

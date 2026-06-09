@@ -15,7 +15,6 @@ from .serializers import (
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active']
     search_fields = ['name', 'father_name', 'nid', 'phone']
@@ -42,7 +41,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 class SalaryDepositEntryViewSet(viewsets.ModelViewSet):
     queryset = SalaryDepositEntry.objects.select_related('employee').all()
     serializer_class = SalaryDepositEntrySerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['employee', 'entry_type']
 
@@ -50,7 +48,6 @@ class SalaryDepositEntryViewSet(viewsets.ModelViewSet):
 class AdvanceViewSet(viewsets.ModelViewSet):
     queryset = Advance.objects.select_related('employee')
     serializer_class = AdvanceSerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['employee', 'is_deducted']
     ordering_fields = ['date_given', 'amount']
@@ -136,7 +133,6 @@ class AdvanceViewSet(viewsets.ModelViewSet):
 class SalaryPaymentViewSet(viewsets.ModelViewSet):
     queryset = SalaryPayment.objects.select_related('employee')
     serializer_class = SalaryPaymentSerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['employee', 'month', 'period_type']
     ordering_fields = ['payment_date', 'month']
@@ -223,7 +219,6 @@ class SalaryPaymentViewSet(viewsets.ModelViewSet):
 class LoanViewSet(viewsets.ModelViewSet):
     queryset = Loan.objects.select_related('employee').all()
     serializer_class = LoanSerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['employee', 'status']
     ordering_fields = ['loan_date', 'amount']
@@ -279,7 +274,6 @@ class LoanViewSet(viewsets.ModelViewSet):
 class TipViewSet(viewsets.ModelViewSet):
     queryset = Tip.objects.select_related('employee').all()
     serializer_class = TipSerializer
-    permission_classes = [permissions.AllowAny]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['employee']
     ordering_fields = ['date', 'amount']

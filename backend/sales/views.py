@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from .models import Sale, SaleItem, SalePayment
 from .direct_sales_models import DirectSale, DirectSaleItem, DirectSalePayment
@@ -15,8 +14,6 @@ from .services import InventoryService
 class DirectSalePaymentViewSet(viewsets.ModelViewSet):
     queryset = DirectSalePayment.objects.select_related('direct_sale').all()
     serializer_class = DirectSalePaymentSerializer
-    permission_classes = [AllowAny]
-
     def get_queryset(self):
         queryset = DirectSalePayment.objects.select_related('direct_sale').all()
         sale_id = self.request.query_params.get('direct_sale')
@@ -28,8 +25,6 @@ class DirectSalePaymentViewSet(viewsets.ModelViewSet):
 class SalePaymentViewSet(viewsets.ModelViewSet):
     queryset = SalePayment.objects.all()
     serializer_class = SalePaymentSerializer
-    permission_classes = [AllowAny]
-
     def get_queryset(self):
         queryset = SalePayment.objects.all()
         sale_id = self.request.query_params.get('sale')
@@ -41,8 +36,6 @@ class SalePaymentViewSet(viewsets.ModelViewSet):
 class SaleViewSet(viewsets.ModelViewSet):
     queryset = Sale.objects.select_related('customer').prefetch_related('items', 'payments').all()
     serializer_class = SaleSerializer
-    permission_classes = [AllowAny]
-
     def get_serializer_class(self):
         if self.action == 'list':
             return SaleListSerializer
@@ -196,8 +189,6 @@ class SaleViewSet(viewsets.ModelViewSet):
 class DirectSaleViewSet(viewsets.ModelViewSet):
     queryset = DirectSale.objects.select_related('customer').prefetch_related('items', 'payments').all()
     serializer_class = DirectSaleSerializer
-    permission_classes = [AllowAny]
-
     def get_serializer_class(self):
         if self.action == 'list':
             return DirectSaleListSerializer

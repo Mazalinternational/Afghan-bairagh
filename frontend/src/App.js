@@ -57,6 +57,16 @@ import { ToastProvider } from './context/ToastContext';
 import { DarkModeProvider } from './context/DarkModeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { SettingsProvider } from './context/SettingsContext';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import PublicRoute from './components/common/PublicRoute';
+
+function PrivateRoute({ children }) {
+  return (
+    <ProtectedRoute>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  );
+}
 
 function App() {
   return (
@@ -68,314 +78,70 @@ function App() {
             <Router>
               <div className="App">
             <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              } />
-              <Route path="/orders" element={
-                <Layout>
-                  <OrdersList />
-                </Layout>
-              } />
-              <Route path="/orders/create" element={
-                <Layout>
-                  <CreateOrder />
-                </Layout>
-              } />
-              <Route path="/orders/:id" element={
-                <Layout>
-                  <OrderDetails />
-                </Layout>
-              } />
-              <Route path="/orders/:id/edit" element={
-                <Layout>
-                  <CreateOrder />
-                </Layout>
-              } />
-              <Route path="/orders/:id/quotation" element={
-                <Layout>
-                  <OrderQuotation />
-                </Layout>
-              } />
-              <Route path="/customers" element={
-                <Layout>
-                  <CustomersList />
-                </Layout>
-              } />
-              <Route path="/customers/create" element={
-                <Layout>
-                  <CustomerForm />
-                </Layout>
-              } />
-              <Route path="/customers/:id" element={
-                <Layout>
-                  <CustomerDetails />
-                </Layout>
-              } />
-              <Route path="/customers/:id/edit" element={
-                <Layout>
-                  <CustomerForm />
-                </Layout>
-              } />
-              <Route path="/customers/:id/ledger" element={
-                <Layout>
-                  <CustomerLedger />
-                </Layout>
-              } />
-              <Route path="/employees" element={
-                <Layout>
-                  <EmployeesList />
-                </Layout>
-              } />
-              <Route path="/employees/create" element={
-                <Layout>
-                  <EmployeeForm />
-                </Layout>
-              } />
-              <Route path="/employees/:id/edit" element={
-                <Layout>
-                  <EmployeeForm />
-                </Layout>
-              } />
-              <Route path="/employees/:id" element={
-                <Layout>
-                  <EmployeeDetails />
-                </Layout>
-              } />
-              <Route path="/employees/advance" element={
-                <Layout>
-                  <EmployeeAdvance />
-                </Layout>
-              } />
-              <Route path="/inventory" element={
-                <Layout>
-                  <InventoryList />
-                </Layout>
-              } />
-              <Route path="/inventory/create" element={
-                <Layout>
-                  <InventoryForm />
-                </Layout>
-              } />
-              <Route path="/inventory/:id" element={
-                <Layout>
-                  <InventoryDetails />
-                </Layout>
-              } />
-              <Route path="/inventory/:id/edit" element={
-                <Layout>
-                  <InventoryForm />
-                </Layout>
-              } />
-              <Route path="/purchases" element={
-                <Layout>
-                  <PurchaseList />
-                </Layout>
-              } />
-              <Route path="/purchases/create" element={
-                <Layout>
-                  <PurchaseForm />
-                </Layout>
-              } />
-              <Route path="/purchases/:id" element={
-                <Layout>
-                  <PurchaseDetails />
-                </Layout>
-              } />
-              <Route path="/purchases/:id/edit" element={
-                <Layout>
-                  <PurchaseForm />
-                </Layout>
-              } />
-              <Route path="/suppliers" element={
-                <Layout>
-                  <SupplierList />
-                </Layout>
-              } />
-              <Route path="/suppliers/create" element={
-                <Layout>
-                  <SupplierForm />
-                </Layout>
-              } />
-              <Route path="/suppliers/:id/edit" element={
-                <Layout>
-                  <SupplierForm />
-                </Layout>
-              } />
-              <Route path="/suppliers/:id/ledger" element={
-                <Layout>
-                  <SupplierLedger />
-                </Layout>
-              } />
-              <Route path="/expenses" element={
-                <Layout>
-                  <ExpenseList />
-                </Layout>
-              } />
-              <Route path="/expenses/new" element={
-                <Layout>
-                  <ExpenseForm />
-                </Layout>
-              } />
-              <Route path="/expenses/:id" element={
-                <Layout>
-                  <ExpenseDetails />
-                </Layout>
-              } />
-              <Route path="/expenses/:id/edit" element={
-                <Layout>
-                  <ExpenseForm />
-                </Layout>
-              } />
-              <Route path="/roznamcha" element={
-                <Layout>
-                  <RozNamchaList />
-                </Layout>
-              } />
-              <Route path="/roznamcha/create" element={
-                <Layout>
-                  <RozNamchaForm />
-                </Layout>
-              } />
-              <Route path="/roznamcha/:id" element={
-                <Layout>
-                  <RozNamchaDetails />
-                </Layout>
-              } />
-              <Route path="/roznamcha/:id/edit" element={
-                <Layout>
-                  <RozNamchaForm />
-                </Layout>
-              } />
-              <Route path="/reports" element={
-                <Layout>
-                  <Reports />
-                </Layout>
-              } />
-              <Route path="/records/search" element={
-                <Layout>
-                  <RecordLookup />
-                </Layout>
-              } />
-              <Route path="/sales" element={
-                <Layout>
-                  <SalesList />
-                </Layout>
-              } />
-              <Route path="/sales/create" element={
-                <Layout>
-                  <CreateSale />
-                </Layout>
-              } />
-              <Route path="/sales/:id" element={
-                <Layout>
-                  <SaleDetails />
-                </Layout>
-              } />
-              <Route path="/sales/:id/edit" element={
-                <Layout>
-                  <EditSale />
-                </Layout>
-              } />
-              <Route path="/sales/direct" element={
-                <Layout>
-                  <DirectSalesList />
-                </Layout>
-              } />
-              <Route path="/sales/direct/create" element={
-                <Layout>
-                  <CreateDirectSale />
-                </Layout>
-              } />
-              <Route path="/sales/direct/:id" element={
-                <Layout>
-                  <DirectSaleDetails />
-                </Layout>
-              } />
-              <Route path="/sales/direct/:id/edit" element={
-                <Layout>
-                  <CreateDirectSale />
-                </Layout>
-              } />
-              <Route path="/settings" element={
-                <Layout>
-                  <Settings />
-                </Layout>
-              } />
-              <Route path="/users" element={
-                <Layout>
-                  <UserManagement />
-                </Layout>
-              } />
-              <Route path="/rent" element={
-                <Layout>
-                  <RentList />
-                </Layout>
-              } />
-              <Route path="/rent/create" element={
-                <Layout>
-                  <RentForm />
-                </Layout>
-              } />
-              <Route path="/rent/:id" element={
-                <Layout>
-                  <RentDetails />
-                </Layout>
-              } />
-              <Route path="/rent/:id/edit" element={
-                <Layout>
-                  <RentForm />
-                </Layout>
-              } />
-              <Route path="/printing" element={
-                <Layout>
-                  <PrintingPressPage />
-                </Layout>
-              } />
-              <Route path="/printing/create" element={
-                <Layout>
-                  <PrintingFormPage />
-                </Layout>
-              } />
-              <Route path="/printing/:id/edit" element={
-                <Layout>
-                  <PrintingFormPage />
-                </Layout>
-              } />
-              <Route path="/printing/:id" element={
-                <Layout>
-                  <PrintingRecordDetails />
-                </Layout>
-              } />
-              <Route path="/bank" element={
-                <Layout>
-                  <BankPage />
-                </Layout>
-              } />
-              <Route path="/quotations" element={
-                <Layout>
-                  <QuotationsList />
-                </Layout>
-              } />
-              <Route path="/quotations/create" element={
-                <Layout>
-                  <CreateQuotation />
-                </Layout>
-              } />
-              <Route path="/quotations/:id" element={
-                <Layout>
-                  <QuotationDetails />
-                </Layout>
-              } />
-              <Route path="/quotations/:id/edit" element={
-                <Layout>
-                  <CreateQuotation />
-                </Layout>
-              } />
+              <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/orders" element={<PrivateRoute><OrdersList /></PrivateRoute>} />
+              <Route path="/orders/create" element={<PrivateRoute><CreateOrder /></PrivateRoute>} />
+              <Route path="/orders/:id" element={<PrivateRoute><OrderDetails /></PrivateRoute>} />
+              <Route path="/orders/:id/edit" element={<PrivateRoute><CreateOrder /></PrivateRoute>} />
+              <Route path="/orders/:id/quotation" element={<PrivateRoute><OrderQuotation /></PrivateRoute>} />
+              <Route path="/customers" element={<PrivateRoute><CustomersList /></PrivateRoute>} />
+              <Route path="/customers/create" element={<PrivateRoute><CustomerForm /></PrivateRoute>} />
+              <Route path="/customers/:id" element={<PrivateRoute><CustomerDetails /></PrivateRoute>} />
+              <Route path="/customers/:id/edit" element={<PrivateRoute><CustomerForm /></PrivateRoute>} />
+              <Route path="/customers/:id/ledger" element={<PrivateRoute><CustomerLedger /></PrivateRoute>} />
+              <Route path="/employees" element={<PrivateRoute><EmployeesList /></PrivateRoute>} />
+              <Route path="/employees/create" element={<PrivateRoute><EmployeeForm /></PrivateRoute>} />
+              <Route path="/employees/:id/edit" element={<PrivateRoute><EmployeeForm /></PrivateRoute>} />
+              <Route path="/employees/:id" element={<PrivateRoute><EmployeeDetails /></PrivateRoute>} />
+              <Route path="/employees/advance" element={<PrivateRoute><EmployeeAdvance /></PrivateRoute>} />
+              <Route path="/inventory" element={<PrivateRoute><InventoryList /></PrivateRoute>} />
+              <Route path="/inventory/create" element={<PrivateRoute><InventoryForm /></PrivateRoute>} />
+              <Route path="/inventory/:id" element={<PrivateRoute><InventoryDetails /></PrivateRoute>} />
+              <Route path="/inventory/:id/edit" element={<PrivateRoute><InventoryForm /></PrivateRoute>} />
+              <Route path="/purchases" element={<PrivateRoute><PurchaseList /></PrivateRoute>} />
+              <Route path="/purchases/create" element={<PrivateRoute><PurchaseForm /></PrivateRoute>} />
+              <Route path="/purchases/:id" element={<PrivateRoute><PurchaseDetails /></PrivateRoute>} />
+              <Route path="/purchases/:id/edit" element={<PrivateRoute><PurchaseForm /></PrivateRoute>} />
+              <Route path="/suppliers" element={<PrivateRoute><SupplierList /></PrivateRoute>} />
+              <Route path="/suppliers/create" element={<PrivateRoute><SupplierForm /></PrivateRoute>} />
+              <Route path="/suppliers/:id/edit" element={<PrivateRoute><SupplierForm /></PrivateRoute>} />
+              <Route path="/suppliers/:id/ledger" element={<PrivateRoute><SupplierLedger /></PrivateRoute>} />
+              <Route path="/expenses" element={<PrivateRoute><ExpenseList /></PrivateRoute>} />
+              <Route path="/expenses/new" element={<PrivateRoute><ExpenseForm /></PrivateRoute>} />
+              <Route path="/expenses/:id" element={<PrivateRoute><ExpenseDetails /></PrivateRoute>} />
+              <Route path="/expenses/:id/edit" element={<PrivateRoute><ExpenseForm /></PrivateRoute>} />
+              <Route path="/roznamcha" element={<PrivateRoute><RozNamchaList /></PrivateRoute>} />
+              <Route path="/roznamcha/create" element={<PrivateRoute><RozNamchaForm /></PrivateRoute>} />
+              <Route path="/roznamcha/:id" element={<PrivateRoute><RozNamchaDetails /></PrivateRoute>} />
+              <Route path="/roznamcha/:id/edit" element={<PrivateRoute><RozNamchaForm /></PrivateRoute>} />
+              <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+              <Route path="/records/search" element={<PrivateRoute><RecordLookup /></PrivateRoute>} />
+              <Route path="/sales" element={<PrivateRoute><SalesList /></PrivateRoute>} />
+              <Route path="/sales/create" element={<PrivateRoute><CreateSale /></PrivateRoute>} />
+              <Route path="/sales/:id" element={<PrivateRoute><SaleDetails /></PrivateRoute>} />
+              <Route path="/sales/:id/edit" element={<PrivateRoute><EditSale /></PrivateRoute>} />
+              <Route path="/sales/direct" element={<PrivateRoute><DirectSalesList /></PrivateRoute>} />
+              <Route path="/sales/direct/create" element={<PrivateRoute><CreateDirectSale /></PrivateRoute>} />
+              <Route path="/sales/direct/:id" element={<PrivateRoute><DirectSaleDetails /></PrivateRoute>} />
+              <Route path="/sales/direct/:id/edit" element={<PrivateRoute><CreateDirectSale /></PrivateRoute>} />
+              <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
+              <Route path="/rent" element={<PrivateRoute><RentList /></PrivateRoute>} />
+              <Route path="/rent/create" element={<PrivateRoute><RentForm /></PrivateRoute>} />
+              <Route path="/rent/:id" element={<PrivateRoute><RentDetails /></PrivateRoute>} />
+              <Route path="/rent/:id/edit" element={<PrivateRoute><RentForm /></PrivateRoute>} />
+              <Route path="/printing" element={<PrivateRoute><PrintingPressPage /></PrivateRoute>} />
+              <Route path="/printing/create" element={<PrivateRoute><PrintingFormPage /></PrivateRoute>} />
+              <Route path="/printing/:id/edit" element={<PrivateRoute><PrintingFormPage /></PrivateRoute>} />
+              <Route path="/printing/:id" element={<PrivateRoute><PrintingRecordDetails /></PrivateRoute>} />
+              <Route path="/bank" element={<PrivateRoute><BankPage /></PrivateRoute>} />
+              <Route path="/quotations" element={<PrivateRoute><QuotationsList /></PrivateRoute>} />
+              <Route path="/quotations/create" element={<PrivateRoute><CreateQuotation /></PrivateRoute>} />
+              <Route path="/quotations/:id" element={<PrivateRoute><QuotationDetails /></PrivateRoute>} />
+              <Route path="/quotations/:id/edit" element={<PrivateRoute><CreateQuotation /></PrivateRoute>} />
             </Routes>
           </div>
         </Router>

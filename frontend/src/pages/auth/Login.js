@@ -78,9 +78,9 @@ const Login = () => {
         username: formData.username.trim(),
         password: formData.password
       });
-      
-      // Set remember me preference
+
       authService.setRememberMe(formData.rememberMe);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error('Login error:', err);
       setError(err.message || t('auth.loginFailed'));

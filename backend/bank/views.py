@@ -2,7 +2,6 @@ from decimal import Decimal
 from django.db.models import Sum
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import BankTransaction
@@ -12,7 +11,6 @@ from .serializers import BankTransactionSerializer, income_total_confirmed
 class BankTransactionViewSet(viewsets.ModelViewSet):
     queryset = BankTransaction.objects.all()
     serializer_class = BankTransactionSerializer
-    permission_classes = [AllowAny]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     @action(detail=False, methods=['get'])
