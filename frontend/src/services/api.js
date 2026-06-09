@@ -1,8 +1,15 @@
 import axios from 'axios';
 import { getAccessToken } from '../utils/tokenStorage';
 
-/** Local `npm start` only — production builds prefer REACT_APP_API_URL from `.env.production`. */
-const DEV_API_FALLBACK = 'http://localhost:8000';
+/** Local `npm start` only — set REACT_APP_API_URL in `.env` (e.g. http://localhost:8000). */
+// const DEV_API_FALLBACK = 'http://localhost:8000';
+
+/** Coerce DRF list or paginated payloads into a plain array. */
+export function normalizeListPayload(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.results)) return data.results;
+  return [];
+}
 
 /**
  * Deployed API origin for afghanflags.com (no trailing slash, no `/api` suffix).
@@ -15,7 +22,7 @@ export const PRODUCTION_API_ORIGIN = 'https://afghanflags.com';
  * If REACT_APP_API_URL ends with `/api`, it is stripped so paths stay `/api/...` not `/api/api/...`.
  */
 function normalizeApiBaseUrl(raw) {
-  let base = (raw || DEV_API_FALLBACK).trim().replace(/\/+$/, '');
+  let base = (raw || PRODUCTION_API_ORIGIN).trim().replace(/\/+$/, '');
   if (/\/api$/i.test(base)) {
     base = base.replace(/\/api$/i, '');
   }
@@ -23,8 +30,7 @@ function normalizeApiBaseUrl(raw) {
 }
 
 export const API_BASE_URL = normalizeApiBaseUrl(
-  process.env.REACT_APP_API_URL ||
-    (process.env.NODE_ENV === 'production' ? PRODUCTION_API_ORIGIN : DEV_API_FALLBACK)
+  process.env.REACT_APP_API_URL || PRODUCTION_API_ORIGIN
 );
 
 // CRA bakes env at `npm start` / `npm run build` — restart dev server after changing `.env`.

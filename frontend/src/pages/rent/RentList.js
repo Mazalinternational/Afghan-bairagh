@@ -9,7 +9,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 import PageHeader from '../../components/common/PageHeader';
-import api from '../../services/api';
+import api, { normalizeListPayload } from '../../services/api';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
 
@@ -31,7 +31,7 @@ const RentList = () => {
       try {
         setLoading(true);
         const response = await api.get('/api/shops/');
-        if (!cancelled) setShops(response.data.results || response.data || []);
+        if (!cancelled) setShops(normalizeListPayload(response.data));
       } catch (error) {
         console.error('Error fetching shops:', error);
         if (!cancelled) addToast(t('rent.loadError'), 'error');

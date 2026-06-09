@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
-import api from '../../services/api';
+import api, { normalizeListPayload } from '../../services/api';
 import { PencilIcon, TrashIcon, PlusIcon, XMarkIcon, UsersIcon, EyeIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../../components/common/PageHeader';
 
@@ -59,7 +59,7 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/api/auth/users/');
-      setUsers(response.data);
+      setUsers(normalizeListPayload(response.data));
     } catch (error) {
       console.error('Error fetching users:', error);
       addToast(t('userManagement.failedToLoad'), 'error');
@@ -69,7 +69,7 @@ const UserManagement = () => {
   };
 
   const filterUsers = () => {
-    let filtered = users;
+    let filtered = Array.isArray(users) ? users : [];
 
     if (searchQuery) {
       filtered = filtered.filter(user =>

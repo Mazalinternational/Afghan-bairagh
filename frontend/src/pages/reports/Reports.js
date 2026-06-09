@@ -1053,13 +1053,13 @@ const Reports = () => {
 
   // Chart data preparation
   const getFinancialChartData = () => {
-    if (!detailedReport) return [];
-    const { financial_summary } = detailedReport;
+    const financial_summary = detailedReport?.financial_summary;
+    if (!financial_summary) return [];
     return [
-      { name: 'Revenue', value: financial_summary.revenue, color: '#3b82f6' },
-      { name: 'Costs', value: financial_summary.costs, color: '#ef4444' },
-      { name: 'Expenses', value: financial_summary.expenses, color: '#f59e0b' },
-      { name: 'Profit', value: financial_summary.profit, color: '#10b981' }
+      { name: 'Revenue', value: financial_summary.revenue ?? 0, color: '#3b82f6' },
+      { name: 'Costs', value: financial_summary.costs ?? 0, color: '#ef4444' },
+      { name: 'Expenses', value: financial_summary.expenses ?? 0, color: '#f59e0b' },
+      { name: 'Profit', value: financial_summary.profit ?? 0, color: '#10b981' }
     ];
   };
 
@@ -1327,37 +1327,37 @@ const Reports = () => {
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.revenue')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-blue-400">
-                        AFN {detailedReport.financial_summary.revenue.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.revenue ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.costs')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-red-400">
-                        AFN {detailedReport.financial_summary.costs.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.costs ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.expenses')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-orange-400">
-                        AFN {detailedReport.financial_summary.expenses.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.expenses ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.profit')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-green-400">
-                        AFN {detailedReport.financial_summary.profit.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.profit ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.receivables')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-yellow-400">
-                        AFN {detailedReport.financial_summary.receivables.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.receivables ?? 0).toFixed(2)}
                       </div>
                     </div>
                     <div className="p-3 bg-sky-100 dark:bg-gray-800 rounded-lg border-l-4 border-green-500">
                       <div className="text-xs font-medium text-gray-700 dark:text-gray-400 mb-0.5">{t('reportsPage.payables')}</div>
                       <div className="text-sm font-bold text-gray-900 dark:text-purple-400">
-                        AFN {detailedReport.financial_summary.payables.toFixed(2)}
+                        AFN {(detailedReport.financial_summary?.payables ?? 0).toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -1379,19 +1379,19 @@ const Reports = () => {
                         <div>
                           <div className="text-gray-500 dark:text-gray-400">{t('reportsPage.directSalesRevenue')}</div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100">
-                            AFN {detailedReport.direct_sales.total_revenue.toFixed(2)}
+                            AFN {(detailedReport.direct_sales.total_revenue ?? 0).toFixed(2)}
                           </div>
                         </div>
                         <div>
                           <div className="text-gray-500 dark:text-gray-400">{t('reportsPage.directSalesCost')}</div>
                           <div className="font-semibold text-gray-900 dark:text-gray-100">
-                            AFN {detailedReport.direct_sales.total_cost.toFixed(2)}
+                            AFN {(detailedReport.direct_sales.total_cost ?? 0).toFixed(2)}
                           </div>
                         </div>
                         <div>
                           <div className="text-gray-500 dark:text-gray-400">{t('reportsPage.directSalesProfit')}</div>
                           <div className="font-semibold text-emerald-700 dark:text-emerald-300">
-                            AFN {detailedReport.direct_sales.total_profit.toFixed(2)}
+                            AFN {(detailedReport.direct_sales.total_profit ?? 0).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -1510,49 +1510,49 @@ const Reports = () => {
                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow border dark:border-gray-600">
                       <h3 className="text-xs font-semibold mb-1 text-gray-900 dark:text-gray-100">{t('reportsPage.ordersSummary')}</h3>
                       <div className="text-sm font-bold text-blue-600 dark:text-blue-400 mb-0.5">
-                        {detailedReport.orders.total_orders}
+                        {detailedReport.orders?.total_orders ?? 0}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {t('reportsPage.totalRevenue')}: AFN {detailedReport.orders.total_revenue.toFixed(2)}
+                        {t('reportsPage.totalRevenue')}: AFN {(detailedReport.orders?.total_revenue ?? 0).toFixed(2)}
                       </div>
                       <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                        {t('reportsPage.totalDue')}: AFN {detailedReport.orders.total_due.toFixed(2)}
+                        {t('reportsPage.totalDue')}: AFN {(detailedReport.orders?.total_due ?? 0).toFixed(2)}
                       </div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow border dark:border-gray-600">
                       <h3 className="text-xs font-semibold mb-1 text-gray-900 dark:text-gray-100">{t('reportsPage.purchasesSummary')}</h3>
                       <div className="text-sm font-bold text-purple-600 dark:text-purple-400 mb-0.5">
-                        {detailedReport.purchases.total_purchases}
+                        {detailedReport.purchases?.total_purchases ?? 0}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {t('reportsPage.totalCost')}: AFN {detailedReport.purchases.total_cost.toFixed(2)}
+                        {t('reportsPage.totalCost')}: AFN {(detailedReport.purchases?.total_cost ?? 0).toFixed(2)}
                       </div>
                       <div className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
-                        {t('reportsPage.remaining')}: AFN {detailedReport.purchases.total_remaining.toFixed(2)}
+                        {t('reportsPage.remaining')}: AFN {(detailedReport.purchases?.total_remaining ?? 0).toFixed(2)}
                       </div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow border dark:border-gray-600">
                       <h3 className="text-xs font-semibold mb-1 text-gray-900 dark:text-gray-100">{t('reportsPage.expensesSummary')}</h3>
                       <div className="text-sm font-bold text-red-600 dark:text-red-400 mb-0.5">
-                        {detailedReport.expenses.count}
+                        {detailedReport.expenses?.count ?? 0}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {t('reportsPage.totalExpenses')}: AFN {detailedReport.expenses.total_expenses.toFixed(2)}
+                        {t('reportsPage.totalExpenses')}: AFN {(detailedReport.expenses?.total_expenses ?? 0).toFixed(2)}
                       </div>
                     </div>
 
                     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow border dark:border-gray-600">
                       <h3 className="text-xs font-semibold mb-1 text-gray-900 dark:text-gray-100">{t('reportsPage.inventorySummary')}</h3>
                       <div className="text-sm font-bold text-green-600 dark:text-green-400 mb-0.5">
-                        {detailedReport.inventory.total_items}
+                        {detailedReport.inventory?.total_items ?? 0}
                       </div>
                       <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {t('reportsPage.stockValue')}: AFN {detailedReport.inventory.total_stock_value.toFixed(2)}
+                        {t('reportsPage.stockValue')}: AFN {(detailedReport.inventory?.total_stock_value ?? 0).toFixed(2)}
                       </div>
                       <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-0.5">
-                        {t('reportsPage.lowStockItems')}: {detailedReport.inventory.low_stock_items}
+                        {t('reportsPage.lowStockItems')}: {detailedReport.inventory?.low_stock_items ?? 0}
                       </div>
                     </div>
 

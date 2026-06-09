@@ -13,7 +13,7 @@ import {
   ArrowLeftIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline';
-import api from '../../services/api';
+import api, { normalizeListPayload } from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
 
 const CustomersList = () => {
@@ -47,7 +47,7 @@ const CustomersList = () => {
     setLoading(true);
     try {
       const res = await api.get('/api/customers/');
-      setAllCustomers(res.data);
+      setAllCustomers(normalizeListPayload(res.data));
     } catch (err) {
       console.error('Error fetching customers:', err);
     } finally {
@@ -56,12 +56,13 @@ const CustomersList = () => {
   };
 
   const paginateCustomers = () => {
-    let filteredCustomers = allCustomers;
+    const source = Array.isArray(allCustomers) ? allCustomers : [];
+    let filteredCustomers = source;
     
     // Apply search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      filteredCustomers = allCustomers.filter(customer =>
+      filteredCustomers = source.filter(customer =>
         customer.name.toLowerCase().includes(q) ||
         customer.phone.toLowerCase().includes(q) ||
         (customer.phone_secondary || '').toLowerCase().includes(q) ||
@@ -77,17 +78,18 @@ const CustomersList = () => {
     setCustomers(paginatedCustomers);
   };
 
-  const totalItems = searchQuery.trim() 
+  const customerSource = Array.isArray(allCustomers) ? allCustomers : [];
+  const totalItems = searchQuery.trim()
     ? (() => {
         const q = searchQuery.toLowerCase();
-        return allCustomers.filter(customer =>
+        return customerSource.filter(customer =>
           customer.name.toLowerCase().includes(q) ||
           customer.phone.toLowerCase().includes(q) ||
           (customer.phone_secondary || '').toLowerCase().includes(q) ||
           (customer.manual_serial_no || '').toLowerCase().includes(q)
         ).length;
       })()
-    : allCustomers.length;
+    : customerSource.length;
 
   const handleSearch = (query) => {
     setSearchQuery(query);
