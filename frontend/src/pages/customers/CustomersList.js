@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n/fallback';
 import {
   PlusIcon,
@@ -13,11 +13,12 @@ import {
   ArrowLeftIcon,
   UserGroupIcon
 } from '@heroicons/react/24/outline';
-import api, { normalizeListPayload } from '../../services/api';
+import api, { fetchAllListPages } from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
 
 const CustomersList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, formatDate } = useTranslation();
   const [customers, setCustomers] = useState([]);
   const [allCustomers, setAllCustomers] = useState([]);
@@ -30,9 +31,22 @@ const CustomersList = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+  const fetchCustomers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await fetchAllListPages('/api/customers/');
+      setAllCustomers(rows);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+      setAllCustomers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [fetchCustomers, location.key]);
 
   useEffect(() => {
     paginateCustomers();
@@ -41,18 +55,6 @@ const CustomersList = () => {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const fetchCustomers = async () => {
-    setLoading(true);
-    try {
-      const res = await api.get('/api/customers/');
-      setAllCustomers(normalizeListPayload(res.data));
-    } catch (err) {
-      console.error('Error fetching customers:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const paginateCustomers = () => {
@@ -112,7 +114,7 @@ const CustomersList = () => {
     const { id, name } = deleteModal;
     try {
       const response = await api.delete(`/api/customers/${id}/`);
-      setAllCustomers(allCustomers.filter(c => c.id !== id));
+      await fetchCustomers();
       showToast(response.data?.message || `${name} ${t('common.deletedSuccess')}`);
     } catch (err) {
       console.error('Error deleting customer:', err);

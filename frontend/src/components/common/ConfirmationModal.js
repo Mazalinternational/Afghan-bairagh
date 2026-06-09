@@ -54,8 +54,8 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
             {cancelText}
           </button>
           <button
-            onClick={() => {
-              onConfirm();
+            onClick={async () => {
+              await onConfirm();
               onClose();
             }}
             className={`px-4 py-2 ${styles.buttonBg} text-white rounded-lg transition-colors`}

@@ -58,6 +58,12 @@ api.interceptors.request.use(
     const method = (config.method || 'get').toLowerCase();
     if (method === 'get' || method === 'head') {
       delete config.headers['Content-Type'];
+      config.headers['Cache-Control'] = 'no-cache';
+      config.headers.Pragma = 'no-cache';
+      config.params = {
+        ...config.params,
+        _t: Date.now(),
+      };
     }
     const token = getAccessToken();
     if (token) {
@@ -120,5 +126,23 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/** Fetch every page of a DRF list endpoint (or a single array response). */
+export async function fetchAllListPages(url, { pageSize = 100, maxPages = 50 } = {}) {
+  let page = 1;
+  let total = Infinity;
+  const rows = [];
+  while (rows.length < total && page <= maxPages) {
+    const sep = url.includes('?') ? '&' : '?';
+    const response = await api.get(`${url}${sep}page=${page}&page_size=${pageSize}`);
+    const chunk = normalizeListPayload(response.data);
+    if (!chunk.length) break;
+    total = response.data?.count ?? chunk.length;
+    rows.push(...chunk);
+    if (chunk.length < pageSize) break;
+    page += 1;
+  }
+  return rows;
+}
 
 export default api;

@@ -20,20 +20,13 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return CustomerSerializer
 
     def retrieve(self, request, pk=None):
-        """Retrieve customer with caching"""
-        cache_key = f"customer_{pk}"
-        customer_data = cache.get(cache_key)
-        
-        if customer_data is None:
-            try:
-                customer = self.get_object()
-                serializer = self.get_serializer(customer)
-                customer_data = serializer.data
-                cache.set(cache_key, customer_data, timeout=300)  # 5 minutes
-            except Customer.DoesNotExist:
-                return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        return Response(customer_data)
+        """Retrieve customer (always fresh from DB)."""
+        try:
+            customer = self.get_object()
+            serializer = self.get_serializer(customer)
+            return Response(serializer.data)
+        except Customer.DoesNotExist:
+            return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
 
     def create(self, request, *args, **kwargs):
         """Create customer and return ID"""

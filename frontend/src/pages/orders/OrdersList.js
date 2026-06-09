@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n/fallback';
 import {
   MagnifyingGlassIcon,
@@ -17,13 +17,16 @@ import {
   ChevronDownIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
-import api from '../../services/api';
+import api, { fetchAllListPages } from '../../services/api';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import PageHeader from '../../components/common/PageHeader';
 import LocalizedDateInput from '../../components/common/LocalizedDateInput';
 
+const getOrderId = (order) => order?.id ?? order?.pk;
+
 const OrdersList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, formatDate } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -62,9 +65,33 @@ const OrdersList = () => {
     return (isNaN(num) ? 0 : num).toFixed(2);
   };
 
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.status) params.append('status', filters.status);
+      if (filters.customer) params.append('customer__name__icontains', filters.customer);
+      if (filters.startDate) params.append('created_at__gte', filters.startDate);
+      if (filters.endDate) params.append('created_at__lte', filters.endDate);
+      params.append('ordering', `${sortConfig.direction === 'asc' ? '' : '-'}${sortConfig.key}`);
+
+      const query = params.toString();
+      const url = query ? `/api/orders/?${query}` : '/api/orders/';
+      const rows = await fetchAllListPages(url);
+      setAllOrders(rows);
+      setOrders(rows);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      setAllOrders([]);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.status, filters.customer, filters.startDate, filters.endDate, sortConfig.direction, sortConfig.key]);
+
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders, location.key]);
 
   useEffect(() => {
     applyFilters();
@@ -141,29 +168,6 @@ const OrdersList = () => {
     setFilteredOrders(filtered);
   };
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (filters.status) params.append('status', filters.status);
-      if (filters.customer) params.append('customer__name__icontains', filters.customer);
-      if (filters.startDate) params.append('created_at__gte', filters.startDate);
-      if (filters.endDate) params.append('created_at__lte', filters.endDate);
-      params.append('ordering', `${sortConfig.direction === 'asc' ? '' : '-'}${sortConfig.key}`);
-
-      const response = await api.get(`/api/orders/?${params}`);
-      const ordersData = response.data.results || response.data;
-      setAllOrders(ordersData);
-      setOrders(ordersData);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      setAllOrders([]);
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -192,11 +196,12 @@ const OrdersList = () => {
     if (selectedOrders.size === paginatedOrders.length) {
       setSelectedOrders(new Set());
     } else {
-      setSelectedOrders(new Set(paginatedOrders.map(o => o.id)));
+      setSelectedOrders(new Set(paginatedOrders.map(getOrderId).filter(Boolean)));
     }
   };
 
   const handleCancelOrder = (orderId) => {
+    if (!orderId) return;
     setConfirmModal({
       isOpen: true,
       action: 'cancel',
@@ -205,6 +210,7 @@ const OrdersList = () => {
   };
 
   const handleDeleteOrder = (orderId) => {
+    if (!orderId) return;
     setConfirmModal({
       isOpen: true,
       action: 'delete',
@@ -213,6 +219,7 @@ const OrdersList = () => {
   };
 
   const handleCompleteOrder = (orderId) => {
+    if (!orderId) return;
     setConfirmModal({
       isOpen: true,
       action: 'complete',
@@ -238,32 +245,36 @@ const OrdersList = () => {
     });
   };
 
-  const executeConfirmAction = async () => {
-    const { action, data } = confirmModal;
+  const executeConfirmAction = async (modalState = confirmModal) => {
+    const { action, data } = modalState;
+    const orderId = data?.orderId;
     try {
       if (action === 'cancel') {
-        await api.post(`/api/orders/${data.orderId}/cancel/`);
+        if (!orderId) throw new Error('Missing order id');
+        await api.post(`/api/orders/${orderId}/cancel/`);
         showToast(t('orders.orderCancelled'), 'success');
         fetchOrders();
       } else if (action === 'delete') {
-        await api.delete(`/api/orders/${data.orderId}/`);
+        if (!orderId) throw new Error('Missing order id');
+        await api.delete(`/api/orders/${orderId}/`);
         showToast('Order deleted successfully', 'success');
         fetchOrders();
       } else if (action === 'complete') {
-        await api.post(`/api/orders/${data.orderId}/complete/`);
+        if (!orderId) throw new Error('Missing order id');
+        await api.post(`/api/orders/${orderId}/complete/`);
         showToast(t('orders.orderCompleted'), 'success');
         fetchOrders();
       } else if (action === 'bulkCancel') {
-        await Promise.all(
-          Array.from(selectedOrders).map(id => api.post(`/api/orders/${id}/cancel/`))
-        );
+        const ids = Array.from(selectedOrders).filter(Boolean);
+        if (!ids.length) throw new Error('No orders selected');
+        await Promise.all(ids.map((id) => api.post(`/api/orders/${id}/cancel/`)));
         showToast(t('orders.ordersCancelled'), 'success');
         fetchOrders();
         setSelectedOrders(new Set());
       } else if (action === 'bulkDelete') {
-        await Promise.all(
-          Array.from(selectedOrders).map(id => api.delete(`/api/orders/${id}/`))
-        );
+        const ids = Array.from(selectedOrders).filter(Boolean);
+        if (!ids.length) throw new Error('No orders selected');
+        await Promise.all(ids.map((id) => api.delete(`/api/orders/${id}/`)));
         showToast('Selected orders deleted successfully', 'success');
         fetchOrders();
         setSelectedOrders(new Set());
@@ -366,7 +377,7 @@ const OrdersList = () => {
       <ConfirmationModal
         isOpen={confirmModal.isOpen}
         onClose={() => setConfirmModal({ isOpen: false, action: null, data: null })}
-        onConfirm={executeConfirmAction}
+        onConfirm={() => executeConfirmAction(confirmModal)}
         title={
           confirmModal.action === 'cancel' ? t('orders.cancelOrder') :
           confirmModal.action === 'delete' ? 'Delete Order' :
@@ -559,21 +570,24 @@ const OrdersList = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedOrders.map(order => (
-                  <React.Fragment key={order.id}>
+                paginatedOrders.map(order => {
+                  const orderId = getOrderId(order);
+                  return (
+                  <React.Fragment key={orderId ?? `order-${order.customer_name}-${order.order_date}`}>
                     <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-2 py-2">
                         <input
                           type="checkbox"
-                          checked={selectedOrders.has(order.id)}
-                          onChange={() => handleSelectOrder(order.id)}
+                          checked={selectedOrders.has(orderId)}
+                          onChange={() => handleSelectOrder(orderId)}
+                          disabled={!orderId}
                           className="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-blue-600 w-3 h-3"
                         />
                       </td>
                       <td className="px-2 py-2 text-[11px] font-medium">
                         <div className="flex items-center gap-1.5">
-                          <span>#{order.id}</span>
-                          {order.id === 4 && (
+                          <span>#{orderId ?? '—'}</span>
+                          {orderId === 4 && (
                             <span className="px-2 py-0.5 bg-yellow-400 text-yellow-900 rounded-full text-[9px] font-semibold">
                               23/02/2026
                             </span>
@@ -583,8 +597,8 @@ const OrdersList = () => {
                       <td className="px-2 py-2 text-[11px]">{order.customer_name || order.customer?.name || 'N/A'}</td>
                       <td className="px-2 py-2 text-[11px]">
                         {(order.order_items && order.order_items.length > 0) ? (
-                          <button onClick={() => toggleRow(order.id)} className="flex items-center gap-1 text-blue-600 hover:text-blue-800">
-                            {expandedRows.has(order.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+                          <button onClick={() => toggleRow(orderId)} className="flex items-center gap-1 text-blue-600 hover:text-blue-800">
+                            {expandedRows.has(orderId) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
                             {order.order_items.length} {order.order_items.length === 1 ? 'item' : 'items'}
                           </button>
                         ) : '—'}
@@ -601,14 +615,16 @@ const OrdersList = () => {
                       <td className="px-2 py-2 text-[11px]">
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => navigate(`/orders/${order.id}`)}
+                            onClick={() => orderId && navigate(`/orders/${orderId}`)}
+                            disabled={!orderId}
                             className="p-0.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                             title={t('common.view')}
                           >
                             <EyeIcon className="h-3.5 w-3.5" />
                           </button>
                           <button
-                            onClick={() => navigate(`/orders/${order.id}/edit`)}
+                            onClick={() => orderId && navigate(`/orders/${orderId}/edit`)}
+                            disabled={!orderId}
                             className="p-0.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
                             title={t('common.edit')}
                           >
@@ -617,14 +633,16 @@ const OrdersList = () => {
                           {order.status === 'pending' && (
                             <>
                               <button
-                                onClick={() => handleCompleteOrder(order.id)}
+                                onClick={() => handleCompleteOrder(orderId)}
+                                disabled={!orderId}
                                 className="p-0.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded transition-colors"
                                 title={t('orders.completeOrder')}
                               >
                                 <CheckCircleIcon className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                onClick={() => handleCancelOrder(order.id)}
+                                onClick={() => handleCancelOrder(orderId)}
+                                disabled={!orderId}
                                 className="p-0.5 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded transition-colors"
                                 title={t('orders.cancelOrder')}
                               >
@@ -633,7 +651,8 @@ const OrdersList = () => {
                             </>
                           )}
                           <button
-                            onClick={() => handleDeleteOrder(order.id)}
+                            onClick={() => handleDeleteOrder(orderId)}
+                            disabled={!orderId}
                             className="p-0.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                             title="Delete Order"
                           >
@@ -642,7 +661,7 @@ const OrdersList = () => {
                         </div>
                       </td>
                     </tr>
-                    {expandedRows.has(order.id) && order.order_items && order.order_items.length > 0 && (
+                    {expandedRows.has(orderId) && order.order_items && order.order_items.length > 0 && (
                       <tr className="bg-gray-50 dark:bg-gray-700/30">
                         <td colSpan="10" className="px-4 py-2">
                           <div className="text-[10px] sm:text-xs">
@@ -673,7 +692,8 @@ const OrdersList = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                ))
+                );
+                })
               )}
             </tbody>
           </table>

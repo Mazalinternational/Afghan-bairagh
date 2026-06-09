@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   BuildingStorefrontIcon,
   EyeIcon,
@@ -9,7 +9,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 import PageHeader from '../../components/common/PageHeader';
-import api, { normalizeListPayload } from '../../services/api';
+import api, { fetchAllListPages } from '../../services/api';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
 
@@ -17,6 +17,7 @@ const ITEMS_PER_PAGE = 5;
 
 const RentList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, formatDate } = useTranslation();
   const { addToast } = useToast();
   const [shops, setShops] = useState([]);
@@ -25,25 +26,23 @@ const RentList = () => {
   const [periodFilter, setPeriodFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get('/api/shops/');
-        if (!cancelled) setShops(normalizeListPayload(response.data));
-      } catch (error) {
-        console.error('Error fetching shops:', error);
-        if (!cancelled) addToast(t('rent.loadError'), 'error');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const loadShops = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await fetchAllListPages('/api/shops/');
+      setShops(rows);
+    } catch (error) {
+      console.error('Error fetching shops:', error);
+      setShops([]);
+      addToast(t('rent.loadError'), 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [addToast, t]);
+
+  useEffect(() => {
+    loadShops();
+  }, [loadShops, location.key]);
 
   const filteredShops = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

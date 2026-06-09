@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
-import api, { normalizeListPayload } from '../../services/api';
+import api, { fetchAllListPages } from '../../services/api';
 import { PencilIcon, TrashIcon, PlusIcon, XMarkIcon, UsersIcon, EyeIcon, MagnifyingGlassIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import PageHeader from '../../components/common/PageHeader';
 
 const UserManagement = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, formatDate } = useTranslation();
   const { addToast } = useToast();
   const [users, setUsers] = useState([]);
@@ -48,25 +49,27 @@ const UserManagement = () => {
     { id: 'settings', label: 'Settings', icon: '⚙️' }
   ];
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const rows = await fetchAllListPages('/api/auth/users/');
+      setUsers(rows);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      addToast(t('userManagement.failedToLoad'), 'error');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, t]);
+
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers, location.key]);
 
   useEffect(() => {
     filterUsers();
   }, [users, searchQuery, currentPage]);
-
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get('/api/auth/users/');
-      setUsers(normalizeListPayload(response.data));
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      addToast(t('userManagement.failedToLoad'), 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filterUsers = () => {
     let filtered = Array.isArray(users) ? users : [];
