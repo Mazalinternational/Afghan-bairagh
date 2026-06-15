@@ -9,6 +9,9 @@ const BILL_FOOTER = {
   address: 'چهارراهی صدارت، سرک وزارت داخله سابقه، مارکیت مطابع صنعتی جاوید، منزل دوم دوکان نمبر A2 14-15',
 };
 
+/** Minimum blank rows on the bill; compact layout fits at least this many real items on one A4 page. */
+const QUOTATION_MIN_ROWS = 7;
+
 const PrintableQuotation = ({ order, customer }) => {
   const { t } = useTranslation();
   const billRef = useRef(null);
@@ -70,7 +73,7 @@ const PrintableQuotation = ({ order, customer }) => {
       ];
 
   const displayItems = [...items];
-  while (displayItems.length < 11) {
+  while (displayItems.length < QUOTATION_MIN_ROWS) {
     displayItems.push({
       id: `empty-${displayItems.length}`,
       item_name: '',
@@ -81,6 +84,10 @@ const PrintableQuotation = ({ order, customer }) => {
       total: '',
     });
   }
+
+  const thStyle = { border: '1px solid #0047AB', padding: '5px 4px', textAlign: 'center', fontSize: '9px', lineHeight: 1.2 };
+  const tdStyle = { border: '1px solid #ddd', padding: '4px 4px', textAlign: 'center', fontSize: '9px', lineHeight: 1.25 };
+  const tdDesc = { ...tdStyle, textAlign: 'right', wordBreak: 'break-word' };
 
   const grandTotal = order.total_estimated_amount != null
     ? parseFloat(order.total_estimated_amount)
@@ -105,8 +112,8 @@ const PrintableQuotation = ({ order, customer }) => {
 
       <div
         ref={billRef}
-        className="printable-bill bg-white shadow-lg mx-auto"
-        style={{ width: '210mm', minHeight: '297mm', padding: '0', position: 'relative', overflow: 'hidden' }}
+        className="printable-bill quotation-bill-a4 bg-white shadow-lg mx-auto"
+        style={{ width: '210mm', maxWidth: '100%', minHeight: '297mm', padding: 0, boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}
       >
         {/* Watermark */}
         <div className="watermark-quotation" style={{
@@ -114,7 +121,7 @@ const PrintableQuotation = ({ order, customer }) => {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%) rotate(-45deg)',
-          fontSize: '100px',
+          fontSize: '72px',
           fontWeight: 'bold',
           color: 'rgba(0, 71, 171, 0.08)',
           zIndex: 999,
@@ -130,18 +137,18 @@ const PrintableQuotation = ({ order, customer }) => {
         {/* Content wrapper */}
         <div style={{ position: 'relative', zIndex: 1 }}>
         {/* Blue Header with Logo */}
-        <div className="flex items-stretch" style={{ height: '100px' }}>
+        <div className="flex items-stretch" style={{ height: '76px' }}>
           <div className="flex items-center justify-center" style={{ 
             width: '35%', 
             backgroundColor: '#0047AB',
-            padding: '10px'
+            padding: '8px'
           }}>
             <img 
               src={systemLogo} 
               alt="Wahid Afghan Logo" 
               style={{ 
-                width: '80px', 
-                height: '80px', 
+                width: '60px', 
+                height: '60px', 
                 borderRadius: '50%', 
                 objectFit: 'cover',
                 border: '3px solid white',
@@ -153,14 +160,15 @@ const PrintableQuotation = ({ order, customer }) => {
           <div className="flex items-center justify-center" style={{ 
             width: '40%', 
             backgroundColor: '#FFD700',
-            padding: '15px'
+            padding: '10px'
           }}>
             <h1 style={{ 
-              fontSize: '26px', 
+              fontSize: '20px', 
               fontWeight: 'bold',
               color: '#000',
               textAlign: 'center',
-              fontFamily: 'Arial, sans-serif'
+              fontFamily: 'Arial, sans-serif',
+              margin: 0,
             }} dir="rtl">
               {systemName}
             </h1>
@@ -170,7 +178,7 @@ const PrintableQuotation = ({ order, customer }) => {
             width: '25%',
             backgroundColor: '#fff',
             position: 'relative',
-            padding: '10px'
+            padding: '8px'
           }}>
             <div style={{
               position: 'absolute',
@@ -179,8 +187,8 @@ const PrintableQuotation = ({ order, customer }) => {
               transform: 'translateY(-50%)',
               backgroundColor: '#0047AB',
               color: 'white',
-              padding: '8px 20px',
-              fontSize: '18px',
+              padding: '5px 14px',
+              fontSize: '12px',
               fontWeight: 'bold',
               clipPath: 'polygon(0 0, 100% 0, 85% 50%, 100% 100%, 0 100%)',
               fontFamily: 'Arial, sans-serif'
@@ -189,9 +197,9 @@ const PrintableQuotation = ({ order, customer }) => {
             </div>
             <div style={{
               position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              fontSize: '16px',
+              bottom: '8px',
+              right: '8px',
+              fontSize: '12px',
               fontWeight: 'bold',
               color: '#0047AB'
             }} dir="rtl">
@@ -202,22 +210,22 @@ const PrintableQuotation = ({ order, customer }) => {
 
         {/* Quotation Label */}
         <div style={{ 
-          padding: '10px 20px', 
+          padding: '6px 16px', 
           backgroundColor: '#0047AB', 
           color: 'white',
           textAlign: 'center',
-          fontSize: '20px',
+          fontSize: '14px',
           fontWeight: 'bold'
         }}>
           {t('quotations.printHeading')}
         </div>
 
         {/* Customer Info Section */}
-        <div style={{ padding: '15px 20px', backgroundColor: '#f8f9fa' }} dir="rtl">
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <div style={{ fontSize: '14px' }}>
+        <div style={{ padding: '8px 16px', backgroundColor: '#f8f9fa' }} dir="rtl">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <div style={{ fontSize: '11px' }}>
               <span style={{ fontWeight: 'bold' }}>تاریخ:</span>
-              <span style={{ marginRight: '10px' }}>
+              <span style={{ marginRight: '8px' }}>
                 {billDateParts
                   ? `${billDateParts.year}/${billDateParts.month}/${billDateParts.day}`
                   : t('orders.billDateNotSet')}
@@ -225,42 +233,42 @@ const PrintableQuotation = ({ order, customer }) => {
             </div>
           </div>
           {(order.manual_serial_no || '').trim() !== '' && (
-            <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+            <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
               <span style={{ fontWeight: 'bold' }}>{t('customers.manualSerialNo')}:</span>
-              <span style={{ marginRight: '10px' }}>{String(order.manual_serial_no).trim()}</span>
+              <span style={{ marginRight: '8px' }}>{String(order.manual_serial_no).trim()}</span>
             </div>
           )}
-          <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+          <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
             <span style={{ fontWeight: 'bold' }}>اسم مشتری:</span>
-            <span style={{ marginRight: '10px' }}>{customerName}</span>
+            <span style={{ marginRight: '8px' }}>{customerName}</span>
           </div>
-          <div style={{ fontSize: '14px', marginBottom: '5px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+          <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
             <span style={{ fontWeight: 'bold' }}>شماره تماس:</span>
-            <span style={{ marginRight: '10px' }}>{customerPhone}</span>
+            <span style={{ marginRight: '8px' }}>{customerPhone}</span>
           </div>
-          <div style={{ fontSize: '14px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+          <div style={{ fontSize: '11px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
             <span style={{ fontWeight: 'bold' }}>آدرس مشتری:</span>
-            <span style={{ marginRight: '10px' }}>{customerAddress}</span>
+            <span style={{ marginRight: '8px' }}>{customerAddress}</span>
           </div>
           {order.notes && String(order.notes).trim() ? (
-            <div style={{ fontSize: '14px', marginTop: '8px', paddingTop: '8px', borderTop: '1px dotted #ccc' }} dir="rtl">
+            <div style={{ fontSize: '11px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dotted #ccc' }} dir="rtl">
               <span style={{ fontWeight: 'bold' }}>{t('orders.billNotesHeading')}:</span>
-              <span style={{ marginRight: '10px', whiteSpace: 'pre-wrap' }}>{order.notes}</span>
+              <span style={{ marginRight: '8px', whiteSpace: 'pre-wrap' }}>{order.notes}</span>
             </div>
           ) : null}
         </div>
 
         {/* Table */}
-        <div style={{ padding: '0 20px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+        <div style={{ padding: '0 14px' }}>
+          <table className="quotation-bill-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ backgroundColor: '#0047AB', color: 'white' }}>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '60px' }} dir="rtl">شماره</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'right' }} dir="rtl">تفصیلات</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">سایز</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '80px' }} dir="rtl">تعداد</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '100px' }} dir="rtl">قیمت</th>
-                <th style={{ border: '1px solid #0047AB', padding: '8px', textAlign: 'center', width: '120px' }} dir="rtl">قیمت مجموعی</th>
+                <th style={{ ...thStyle, width: '28px' }} dir="rtl">شماره</th>
+                <th style={{ ...thStyle, textAlign: 'right' }} dir="rtl">تفصیلات</th>
+                <th style={{ ...thStyle, width: '64px' }} dir="rtl">سایز</th>
+                <th style={{ ...thStyle, width: '44px' }} dir="rtl">تعداد</th>
+                <th style={{ ...thStyle, width: '56px' }} dir="rtl">قیمت</th>
+                <th style={{ ...thStyle, width: '68px' }} dir="rtl">قیمت مجموعی</th>
               </tr>
             </thead>
             <tbody>
@@ -283,20 +291,17 @@ const PrintableQuotation = ({ order, customer }) => {
                 return (
                   <tr key={row.id || idx} style={{ backgroundColor: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
                     <td style={{ 
-                      border: '1px solid #ddd', 
-                      padding: '10px', 
-                      textAlign: 'center',
+                      ...tdStyle,
                       color: '#0047AB',
                       fontWeight: 'bold',
-                      fontSize: '14px'
                     }}>{idx + 1}</td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'right', fontSize: '13px' }} dir="rtl">{desc}</td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{sizeDisplay}</td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>{qty}</td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px' }}>
+                    <td style={tdDesc} dir="rtl">{desc}</td>
+                    <td style={tdStyle}>{sizeDisplay}</td>
+                    <td style={tdStyle}>{qty}</td>
+                    <td style={tdStyle}>
                       {perPrice && `AFN ${parseFloat(perPrice).toFixed(0)}`}
                     </td>
-                    <td style={{ border: '1px solid #ddd', padding: '10px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold' }}>
+                    <td style={{ ...tdStyle, fontWeight: 'bold' }}>
                       {total && `AFN ${parseFloat(total).toFixed(0)}`}
                     </td>
                   </tr>
@@ -307,33 +312,33 @@ const PrintableQuotation = ({ order, customer }) => {
         </div>
 
         {/* Totals Section */}
-        <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }} dir="rtl">
+        <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }} dir="rtl">
           <div style={{ 
             border: '3px solid #0047AB',
-            padding: '15px 40px',
+            padding: '8px 24px',
             clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)',
-            minWidth: '200px'
+            minWidth: '160px'
           }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>
               مجموع پول:
             </div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', textAlign: 'center', marginTop: '5px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', textAlign: 'center', marginTop: '3px' }}>
               {grandTotal.toFixed(0)}
             </div>
           </div>
 
-          <div style={{ flex: 1, paddingRight: '40px' }}>
-            <div style={{ fontSize: '14px', marginBottom: '10px', borderBottom: '1px dotted #999', paddingBottom: '5px' }}>
+          <div style={{ flex: 1, paddingRight: '24px' }}>
+            <div style={{ fontSize: '11px', marginBottom: '6px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
               <span style={{ fontWeight: 'bold' }}>رسید:</span>
-              <span style={{ marginRight: '10px' }}>{totalPaid.toFixed(0)}</span>
+              <span style={{ marginRight: '8px' }}>{totalPaid.toFixed(0)}</span>
             </div>
-            <div style={{ fontSize: '14px', marginBottom: '10px', borderBottom: '1px dotted #999', paddingBottom: '5px' }}>
+            <div style={{ fontSize: '11px', marginBottom: '6px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
               <span style={{ fontWeight: 'bold' }}>باقی مانده:</span>
-              <span style={{ marginRight: '10px' }}>{remaining.toFixed(0)}</span>
+              <span style={{ marginRight: '8px' }}>{remaining.toFixed(0)}</span>
             </div>
-            <div style={{ textAlign: 'center', marginTop: '30px', fontSize: '13px' }}>
+            <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px' }}>
                مهر و امضاء
-              <div style={{ borderTop: '1px solid #000', marginTop: '30px', width: '150px', marginLeft: 'auto', marginRight: 'auto' }}></div>
+              <div style={{ borderTop: '1px solid #000', marginTop: '20px', width: '130px', marginLeft: 'auto', marginRight: 'auto' }}></div>
             </div>
           </div>
         </div>
@@ -341,19 +346,19 @@ const PrintableQuotation = ({ order, customer }) => {
         {/* Yellow Footer */}
         <div style={{ 
           backgroundColor: '#FFD700', 
-          padding: '12px 20px',
+          padding: '8px 14px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginTop: '20px',
+          marginTop: '8px',
           position: 'relative'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span>📞</span>
               <span>{BILL_FOOTER.phones}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span>📧</span>
               <span>{BILL_FOOTER.email}</span>
             </div>
@@ -362,11 +367,11 @@ const PrintableQuotation = ({ order, customer }) => {
           <div style={{
             backgroundColor: '#0047AB',
             color: 'white',
-            padding: '8px 30px 8px 15px',
-            fontSize: '11px',
+            padding: '5px 20px 5px 12px',
+            fontSize: '9px',
             clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 15% 100%, 0 50%)',
             textAlign: 'right',
-            maxWidth: '400px'
+            maxWidth: '360px'
           }} dir="rtl">
             آدرس: <span style={{ marginRight: '5px' }}>{BILL_FOOTER.address}</span>
           </div>
@@ -375,22 +380,40 @@ const PrintableQuotation = ({ order, customer }) => {
       </div>
 
       <style>{`
+        .quotation-bill-a4 {
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
         @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+          }
           body * { visibility: hidden; }
           .printable-bill, .printable-bill * { visibility: visible; }
           .printable-bill {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm !important;
-            height: 297mm !important;
-            background: white;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 297mm !important;
+            height: auto !important;
+            background: white !important;
             box-shadow: none !important;
-            overflow: hidden !important;
+            overflow: visible !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
+          .quotation-bill-a4 .quotation-bill-table { font-size: 8.5px; }
+          .quotation-bill-a4 .quotation-bill-table th,
+          .quotation-bill-a4 .quotation-bill-table td { padding: 3px 4px !important; }
           .watermark-quotation {
             visibility: visible !important;
             opacity: 1 !important;
+            font-size: 64px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
             color: rgba(0, 71, 171, 0.08) !important;
@@ -401,10 +424,6 @@ const PrintableQuotation = ({ order, customer }) => {
             size: A4;
             margin: 0;
           }
-        }
-        .printable-bill {
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
         }
         .watermark-quotation {
           -webkit-print-color-adjust: exact;
