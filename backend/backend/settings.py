@@ -61,8 +61,8 @@ _CORS_DEV = [
     'http://localhost:3001',
     'http://localhost:3002',
     'http://localhost:5500',
-    'http://127.0.0.1:5500',
     'http://127.0.0.1:3000',
+    'http://127.0.0.1:5500',
 ]
 _CORS_PROD_DEFAULT = [
     'https://afghanflags.com',
@@ -71,6 +71,7 @@ _CORS_PROD_DEFAULT = [
 ]
 _cors_extra = _split_csv('DJANGO_CORS_ALLOWED_ORIGINS')
 if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = _CORS_DEV + _cors_extra
 else:
     CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_CORS_PROD_DEFAULT + _cors_extra))
@@ -81,9 +82,11 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
     'authorization',
+    'cache-control',
     'content-type',
     'dnt',
     'origin',
+    'pragma',
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
@@ -147,8 +150,8 @@ _CSRF_DEV = [
     'http://localhost:3000',
     'http://localhost:3002',
     'http://localhost:5500',
-    'http://127.0.0.1:5500',
     'http://127.0.0.1:3000',
+    'http://127.0.0.1:5500',
 ]
 _CSRF_PROD_DEFAULT = [
     'https://afghanflags.com',

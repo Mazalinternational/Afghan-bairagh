@@ -78,7 +78,7 @@ const PrintablePressBill = ({ record, billAudience = 'internal' }) => {
     if (!billRef.current) return;
     const printContents = billRef.current.innerHTML;
     const originalContents = document.body.innerHTML;
-    document.body.innerHTML = printContents;
+    document.body.innerHTML = `<div class="printable-bill">${printContents}</div>`;
     window.print();
     document.body.innerHTML = originalContents;
     window.location.reload();

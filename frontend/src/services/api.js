@@ -1,8 +1,19 @@
 import axios from 'axios';
 import { getAccessToken } from '../utils/tokenStorage';
 
-/** Local `npm start` only — set REACT_APP_API_URL in `.env` (e.g. http://localhost:8000). */
-// const DEV_API_FALLBACK = 'http://localhost:8000';
+function isLocalApiUrl(url) {
+  return !url || /localhost|127\.0\.0\.1/i.test(url);
+}
+
+function resolveApiBaseUrl() {
+  const envUrl = (process.env.REACT_APP_API_URL || '').trim();
+
+  if (process.env.NODE_ENV === 'development' && isLocalApiUrl(envUrl)) {
+    return normalizeApiBaseUrl(envUrl || 'http://localhost:8000');
+  }
+
+  return normalizeApiBaseUrl(envUrl || PRODUCTION_API_ORIGIN);
+}
 
 /** Coerce DRF list or paginated payloads into a plain array. */
 export function normalizeListPayload(data) {
@@ -29,18 +40,16 @@ function normalizeApiBaseUrl(raw) {
   return base;
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(
-  process.env.REACT_APP_API_URL || PRODUCTION_API_ORIGIN
-);
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // CRA bakes env at `npm start` / `npm run build` — restart dev server after changing `.env`.
 if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
   // eslint-disable-next-line no-console
   console.info(
     '[api] API_BASE_URL =',
-    API_BASE_URL,
+    API_BASE_URL || '(unset)',
     '| REACT_APP_API_URL =',
-    process.env.REACT_APP_API_URL ?? '(unset, using dev fallback or production branch above)'
+    process.env.REACT_APP_API_URL ?? '(unset)'
   );
 }
 
@@ -58,8 +67,6 @@ api.interceptors.request.use(
     const method = (config.method || 'get').toLowerCase();
     if (method === 'get' || method === 'head') {
       delete config.headers['Content-Type'];
-      config.headers['Cache-Control'] = 'no-cache';
-      config.headers.Pragma = 'no-cache';
       config.params = {
         ...config.params,
         _t: Date.now(),

@@ -57,7 +57,7 @@ class AuthService {
   // Login user
   async login(credentials) {
     try {
-      const response = await api.post('/api/token/', {
+      const response = await api.post('/api/auth/login/', {
         username: credentials.username,
         password: credentials.password,
       });
