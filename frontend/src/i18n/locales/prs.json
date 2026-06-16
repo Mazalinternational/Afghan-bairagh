@@ -1014,6 +1014,7 @@
     "deleteMessage": "آیا مطمئن هستید که میخواهید کوټیشن برای",
     "yesDelete": "بلی، حذف",
     "printQuotation": "چاپ کوټیشن",
+    "linesTruncated": "فقط {{shown}} قلم اول از {{total}} قلم در این صفحه نمایش داده شد.",
     "createNewQuotation": "ایجاد کوټیشن پیشنهادی جدید",
     "updateQuotationDetails": "بروزرسانی جزئیات کوټیشن",
     "billNoLabel": "نمبر بل"

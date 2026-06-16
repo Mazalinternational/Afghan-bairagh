@@ -1058,6 +1058,7 @@
     "deleteMessage": "Are you sure you want to delete quotation for",
     "yesDelete": "Yes, Delete",
     "printQuotation": "Print Quotation",
+    "linesTruncated": "Showing first {{shown}} of {{total}} items on this page.",
     "createNewQuotation": "Create a new price quotation",
     "updateQuotationDetails": "Update quotation details",
     "billNoLabel": "Bill No."

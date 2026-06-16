@@ -222,6 +222,7 @@ const translations = {
       printHeading: "Quotation",
       printQuotation: "Print Quotation",
       billNoLabel: "Bill No.",
+      linesTruncated: "Showing first {{shown}} of {{total}} items on this page.",
       quotationDateLabel: "Quotation date",
       quotationDateHelp: "Optional — defaults to today if empty"
     },
@@ -2164,6 +2165,7 @@ const translations = {
       printHeading: "کوټیشن",
       printQuotation: "چاپ کوټیشن",
       billNoLabel: "نمبر بل",
+      linesTruncated: "فقط {{shown}} قلم اول از {{total}} قلم در این صفحه نمایش داده شد.",
       quotationDateLabel: "تاریخ کوټیشن",
       quotationDateHelp: "اختیاری — اگر خالی باشد امروز ثبت می‌شود"
     },

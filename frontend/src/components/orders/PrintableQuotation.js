@@ -9,8 +9,111 @@ const BILL_FOOTER = {
   address: 'چهارراهی صدارت، سرک وزارت داخله سابقه، مارکیت مطابع صنعتی جاوید، منزل دوم دوکان نمبر A2 14-15',
 };
 
-/** Minimum blank rows on the bill; compact layout fits at least this many real items on one A4 page. */
-const QUOTATION_MIN_ROWS = 7;
+/** Exactly 11 line-item rows per A4 quotation page. */
+const QUOTATION_ROWS_PER_PAGE = 11;
+/** Fixed tbody row height so 11 rows always fill the table area on one page. */
+const QUOTATION_ROW_HEIGHT_MM = 14;
+
+const QUOTATION_PRINT_CSS = `
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .quotation-bill-a4 {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  @media print {
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: auto !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
+    body * { visibility: hidden; }
+    .printable-bill, .printable-bill * { visibility: visible; }
+    .printable-bill {
+      position: relative !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .printable-bill .quotation-bill-a4 {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      min-height: calc(297mm - 20mm) !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+    }
+    .quotation-bill-body {
+      padding-bottom: 34px !important;
+      overflow: visible !important;
+    }
+    .quotation-customer-block {
+      padding: 6px 10px !important;
+      overflow: visible !important;
+    }
+    .quotation-customer-block > div {
+      overflow: visible !important;
+      word-break: break-word !important;
+    }
+    .quotation-table-section {
+      padding: 0 10px !important;
+      overflow: visible !important;
+    }
+    .quotation-bill-footer {
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      width: 100% !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+    }
+    .quotation-bill-a4 .quotation-bill-table { font-size: 10.5px; }
+    .quotation-bill-a4 .quotation-bill-table th { font-size: 10.5px !important; }
+    .quotation-bill-a4 .quotation-bill-table td { font-size: 11px !important; }
+    .quotation-bill-a4 .quotation-bill-table th,
+    .quotation-bill-a4 .quotation-bill-table td {
+      padding: 2px 3px !important;
+    }
+    .quotation-bill-a4 .quotation-bill-table tbody tr.quotation-bill-row {
+      height: ${QUOTATION_ROW_HEIGHT_MM}mm !important;
+      max-height: ${QUOTATION_ROW_HEIGHT_MM}mm !important;
+    }
+    .quotation-bill-a4 .quotation-bill-table tbody td {
+      height: ${QUOTATION_ROW_HEIGHT_MM}mm !important;
+      max-height: ${QUOTATION_ROW_HEIGHT_MM}mm !important;
+      overflow: hidden !important;
+      vertical-align: middle !important;
+    }
+    .watermark-quotation {
+      visibility: visible !important;
+      opacity: 1 !important;
+      font-size: 64px !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color: rgba(0, 71, 171, 0.08) !important;
+      z-index: 999 !important;
+    }
+    button { display: none !important; }
+    @page {
+      size: A4;
+      margin: 10mm;
+    }
+  }
+  .watermark-quotation {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+`;
 
 const PrintableQuotation = ({ order, customer }) => {
   const { t } = useTranslation();
@@ -72,8 +175,9 @@ const PrintableQuotation = ({ order, customer }) => {
         },
       ];
 
-  const displayItems = [...items];
-  while (displayItems.length < QUOTATION_MIN_ROWS) {
+  const truncated = items.length > QUOTATION_ROWS_PER_PAGE;
+  const displayItems = items.slice(0, QUOTATION_ROWS_PER_PAGE);
+  while (displayItems.length < QUOTATION_ROWS_PER_PAGE) {
     displayItems.push({
       id: `empty-${displayItems.length}`,
       item_name: '',
@@ -85,8 +189,19 @@ const PrintableQuotation = ({ order, customer }) => {
     });
   }
 
-  const thStyle = { border: '1px solid #0047AB', padding: '5px 4px', textAlign: 'center', fontSize: '9px', lineHeight: 1.2 };
-  const tdStyle = { border: '1px solid #ddd', padding: '4px 4px', textAlign: 'center', fontSize: '9px', lineHeight: 1.25 };
+  const rowHeight = `${QUOTATION_ROW_HEIGHT_MM}mm`;
+  const thStyle = { border: '1px solid #0047AB', padding: '3px 3px', textAlign: 'center', fontSize: '10.5px', lineHeight: 1.25 };
+  const tdStyle = {
+    border: '1px solid #ddd',
+    padding: '2px 3px',
+    textAlign: 'center',
+    fontSize: '11px',
+    lineHeight: 1.25,
+    height: rowHeight,
+    maxHeight: rowHeight,
+    verticalAlign: 'middle',
+    overflow: 'hidden',
+  };
   const tdDesc = { ...tdStyle, textAlign: 'right', wordBreak: 'break-word' };
 
   const grandTotal = order.total_estimated_amount != null
@@ -113,7 +228,15 @@ const PrintableQuotation = ({ order, customer }) => {
       <div
         ref={billRef}
         className="printable-bill quotation-bill-a4 bg-white shadow-lg mx-auto"
-        style={{ width: '210mm', maxWidth: '100%', minHeight: '297mm', padding: 0, boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}
+        style={{
+          width: '210mm',
+          maxWidth: '100%',
+          height: '297mm',
+          padding: 0,
+          boxSizing: 'border-box',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
       >
         {/* Watermark */}
         <div className="watermark-quotation" style={{
@@ -134,10 +257,10 @@ const PrintableQuotation = ({ order, customer }) => {
           QUOTATION
         </div>
 
-        {/* Content wrapper */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        {/* Content wrapper — padding reserves space for pinned footer */}
+        <div className="quotation-bill-body" style={{ position: 'relative', zIndex: 1, paddingBottom: '34px' }}>
         {/* Blue Header with Logo */}
-        <div className="flex items-stretch" style={{ height: '76px' }}>
+        <div className="flex items-stretch" style={{ height: '68px', flexShrink: 0 }}>
           <div className="flex items-center justify-center" style={{ 
             width: '35%', 
             backgroundColor: '#0047AB',
@@ -147,8 +270,8 @@ const PrintableQuotation = ({ order, customer }) => {
               src={systemLogo} 
               alt="Wahid Afghan Logo" 
               style={{ 
-                width: '60px', 
-                height: '60px', 
+                width: '54px', 
+                height: '54px', 
                 borderRadius: '50%', 
                 objectFit: 'cover',
                 border: '3px solid white',
@@ -163,7 +286,7 @@ const PrintableQuotation = ({ order, customer }) => {
             padding: '10px'
           }}>
             <h1 style={{ 
-              fontSize: '20px', 
+              fontSize: '18px', 
               fontWeight: 'bold',
               color: '#000',
               textAlign: 'center',
@@ -210,20 +333,21 @@ const PrintableQuotation = ({ order, customer }) => {
 
         {/* Quotation Label */}
         <div style={{ 
-          padding: '6px 16px', 
+          padding: '5px 14px', 
           backgroundColor: '#0047AB', 
           color: 'white',
           textAlign: 'center',
-          fontSize: '14px',
-          fontWeight: 'bold'
+          fontSize: '13px',
+          fontWeight: 'bold',
+          flexShrink: 0,
         }}>
           {t('quotations.printHeading')}
         </div>
 
         {/* Customer Info Section */}
-        <div style={{ padding: '8px 16px', backgroundColor: '#f8f9fa' }} dir="rtl">
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <div style={{ fontSize: '11px' }}>
+        <div className="quotation-customer-block" style={{ padding: '6px 14px', backgroundColor: '#f8f9fa', flexShrink: 0 }} dir="rtl">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+            <div style={{ fontSize: '10px' }}>
               <span style={{ fontWeight: 'bold' }}>تاریخ:</span>
               <span style={{ marginRight: '8px' }}>
                 {billDateParts
@@ -233,34 +357,34 @@ const PrintableQuotation = ({ order, customer }) => {
             </div>
           </div>
           {(order.manual_serial_no || '').trim() !== '' && (
-            <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
+            <div style={{ fontSize: '10px', marginBottom: '2px', borderBottom: '1px dotted #999', paddingBottom: '1px' }}>
               <span style={{ fontWeight: 'bold' }}>{t('customers.manualSerialNo')}:</span>
-              <span style={{ marginRight: '8px' }}>{String(order.manual_serial_no).trim()}</span>
+              <span style={{ marginRight: '6px' }}>{String(order.manual_serial_no).trim()}</span>
             </div>
           )}
-          <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
+          <div style={{ fontSize: '10px', marginBottom: '2px', borderBottom: '1px dotted #999', paddingBottom: '1px' }}>
             <span style={{ fontWeight: 'bold' }}>اسم مشتری:</span>
-            <span style={{ marginRight: '8px' }}>{customerName}</span>
+            <span style={{ marginRight: '6px' }}>{customerName}</span>
           </div>
-          <div style={{ fontSize: '11px', marginBottom: '3px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
+          <div style={{ fontSize: '10px', marginBottom: '2px', borderBottom: '1px dotted #999', paddingBottom: '1px' }}>
             <span style={{ fontWeight: 'bold' }}>شماره تماس:</span>
-            <span style={{ marginRight: '8px' }}>{customerPhone}</span>
+            <span style={{ marginRight: '6px' }}>{customerPhone}</span>
           </div>
-          <div style={{ fontSize: '11px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
+          <div style={{ fontSize: '10px', borderBottom: '1px dotted #999', paddingBottom: '1px' }}>
             <span style={{ fontWeight: 'bold' }}>آدرس مشتری:</span>
-            <span style={{ marginRight: '8px' }}>{customerAddress}</span>
+            <span style={{ marginRight: '6px' }}>{customerAddress}</span>
           </div>
           {order.notes && String(order.notes).trim() ? (
-            <div style={{ fontSize: '11px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dotted #ccc' }} dir="rtl">
+            <div style={{ fontSize: '10px', marginTop: '3px', paddingTop: '3px', borderTop: '1px dotted #ccc' }} dir="rtl">
               <span style={{ fontWeight: 'bold' }}>{t('orders.billNotesHeading')}:</span>
               <span style={{ marginRight: '8px', whiteSpace: 'pre-wrap' }}>{order.notes}</span>
             </div>
           ) : null}
         </div>
 
-        {/* Table */}
-        <div style={{ padding: '0 14px' }}>
-          <table className="quotation-bill-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '6px', tableLayout: 'fixed' }}>
+        {/* Table — exactly 11 rows */}
+        <div className="quotation-table-section" style={{ padding: '0 12px' }}>
+          <table className="quotation-bill-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '4px', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ backgroundColor: '#0047AB', color: 'white' }}>
                 <th style={{ ...thStyle, width: '28px' }} dir="rtl">شماره</th>
@@ -289,7 +413,7 @@ const PrintableQuotation = ({ order, customer }) => {
                 const sizeDisplay = flagSize && flagStandSize ? `${flagSize} / ${flagStandSize}` : flagSize || flagStandSize || '';
                 
                 return (
-                  <tr key={row.id || idx} style={{ backgroundColor: idx % 2 === 0 ? '#f8f9fa' : '#fff' }}>
+                  <tr key={row.id || idx} className="quotation-bill-row" style={{ backgroundColor: idx % 2 === 0 ? '#f8f9fa' : '#fff', height: rowHeight }}>
                     <td style={{ 
                       ...tdStyle,
                       color: '#0047AB',
@@ -309,49 +433,59 @@ const PrintableQuotation = ({ order, customer }) => {
               })}
             </tbody>
           </table>
+          {truncated ? (
+            <p style={{ fontSize: '8px', color: '#666', marginTop: '3px', textAlign: 'center' }} dir="ltr">
+              {t('quotations.linesTruncated', { shown: QUOTATION_ROWS_PER_PAGE, total: items.length })}
+            </p>
+          ) : null}
         </div>
 
         {/* Totals Section */}
-        <div style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }} dir="rtl">
+        <div style={{ padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }} dir="rtl">
           <div style={{ 
             border: '3px solid #0047AB',
-            padding: '8px 24px',
+            padding: '6px 20px',
             clipPath: 'polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%)',
-            minWidth: '160px'
+            minWidth: '140px'
           }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>
               مجموع پول:
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 'bold', textAlign: 'center', marginTop: '3px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', textAlign: 'center', marginTop: '2px' }}>
               {grandTotal.toFixed(0)}
             </div>
           </div>
 
-          <div style={{ flex: 1, paddingRight: '24px' }}>
-            <div style={{ fontSize: '11px', marginBottom: '6px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+          <div style={{ flex: 1, paddingRight: '20px' }}>
+            <div style={{ fontSize: '10px', marginBottom: '4px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
               <span style={{ fontWeight: 'bold' }}>رسید:</span>
-              <span style={{ marginRight: '8px' }}>{totalPaid.toFixed(0)}</span>
+              <span style={{ marginRight: '6px' }}>{totalPaid.toFixed(0)}</span>
             </div>
-            <div style={{ fontSize: '11px', marginBottom: '6px', borderBottom: '1px dotted #999', paddingBottom: '3px' }}>
+            <div style={{ fontSize: '10px', marginBottom: '4px', borderBottom: '1px dotted #999', paddingBottom: '2px' }}>
               <span style={{ fontWeight: 'bold' }}>باقی مانده:</span>
-              <span style={{ marginRight: '8px' }}>{remaining.toFixed(0)}</span>
+              <span style={{ marginRight: '6px' }}>{remaining.toFixed(0)}</span>
             </div>
-            <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px' }}>
+            <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '10px' }}>
                مهر و امضاء
-              <div style={{ borderTop: '1px solid #000', marginTop: '20px', width: '130px', marginLeft: 'auto', marginRight: 'auto' }}></div>
+              <div style={{ borderTop: '1px solid #000', marginTop: '14px', width: '120px', marginLeft: 'auto', marginRight: 'auto' }}></div>
             </div>
           </div>
         </div>
+        </div>
 
-        {/* Yellow Footer */}
-        <div style={{ 
+        {/* Yellow Footer — pinned to bottom of A4 */}
+        <div className="quotation-bill-footer" style={{ 
           backgroundColor: '#FFD700', 
-          padding: '8px 14px',
+          padding: '6px 12px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginTop: '8px',
-          position: 'relative'
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          width: '100%',
+          boxSizing: 'border-box',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -376,60 +510,9 @@ const PrintableQuotation = ({ order, customer }) => {
             آدرس: <span style={{ marginRight: '5px' }}>{BILL_FOOTER.address}</span>
           </div>
         </div>
-        </div>
       </div>
 
-      <style>{`
-        .quotation-bill-a4 {
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
-        }
-        @media print {
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-          }
-          body * { visibility: hidden; }
-          .printable-bill, .printable-bill * { visibility: visible; }
-          .printable-bill {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: none !important;
-            min-height: 297mm !important;
-            height: auto !important;
-            background: white !important;
-            box-shadow: none !important;
-            overflow: visible !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-          .quotation-bill-a4 .quotation-bill-table { font-size: 8.5px; }
-          .quotation-bill-a4 .quotation-bill-table th,
-          .quotation-bill-a4 .quotation-bill-table td { padding: 3px 4px !important; }
-          .watermark-quotation {
-            visibility: visible !important;
-            opacity: 1 !important;
-            font-size: 64px !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color: rgba(0, 71, 171, 0.08) !important;
-            z-index: 999 !important;
-          }
-          button { display: none !important; }
-          @page {
-            size: A4;
-            margin: 0;
-          }
-        }
-        .watermark-quotation {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-      `}</style>
+      <style>{QUOTATION_PRINT_CSS}</style>
     </div>
   );
 };
