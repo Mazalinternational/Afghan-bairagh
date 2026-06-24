@@ -37,6 +37,7 @@ const UserManagement = () => {
   const availablePermissions = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'orders', label: 'Orders', icon: '📦' },
+    { id: 'quotations', label: 'Quotations', icon: '📝' },
     { id: 'sales', label: 'Sales', icon: '💰' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'inventory', label: 'Inventory', icon: '📦' },
@@ -45,8 +46,13 @@ const UserManagement = () => {
     { id: 'employees', label: 'Employees', icon: '👨‍💼' },
     { id: 'expenses', label: 'Expenses', icon: '💸' },
     { id: 'roznamcha', label: 'Roznamcha', icon: '📓' },
+    { id: 'rent', label: 'Rent', icon: '🏠' },
+    { id: 'printingPress', label: 'Printing Press', icon: '🖨️' },
     { id: 'reports', label: 'Reports', icon: '📈' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' }
+    { id: 'bank', label: 'Bank', icon: '🏦' },
+    { id: 'recordLookup', label: 'Record Lookup', icon: '🔍' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
+    { id: 'users', label: 'User Management', icon: '👤' },
   ];
 
   const fetchUsers = useCallback(async () => {

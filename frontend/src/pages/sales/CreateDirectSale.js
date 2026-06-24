@@ -103,6 +103,7 @@ const CreateDirectSale = () => {
           supplier_name: item.supplier_name || ''
         }))
       );
+      setExpandedItems({});
     } catch (error) {
       console.error('Error fetching direct sale:', error);
       addToast(t('sales.failedToLoadDirectSales'), 'error');

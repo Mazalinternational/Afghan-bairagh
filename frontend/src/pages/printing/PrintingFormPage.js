@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlusIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
@@ -151,8 +151,29 @@ const PrintingFormPage = () => {
     [formData.lines]
   );
 
+  const paymentAmountNow = useMemo(() => {
+    if (formData.payment_method === 'cash') return grandSellingTotal;
+    if (formData.payment_method === 'partial') return parseLocaleFloat(formData.payment_amount) || 0;
+    return 0;
+  }, [formData.payment_method, formData.payment_amount, grandSellingTotal]);
+
+  const remainingAfterPayment = Math.max(0, grandSellingTotal - paymentAmountNow);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isEdit && formData.payment_method === 'partial') {
+      const partialAmount = parseLocaleFloat(formData.payment_amount) || 0;
+      if (partialAmount <= 0) {
+        addToast(t('printing.partialPaymentRequired'), 'error');
+        return;
+      }
+      if (partialAmount > grandSellingTotal + 0.01) {
+        addToast(t('printing.partialPaymentExceedsTotal'), 'error');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let printerId = formData.printer;
@@ -192,17 +213,19 @@ const PrintingFormPage = () => {
             amount: grandSellingTotal,
             payment_method: 'cash',
             reference: formData.reference,
+            notes: formData.notes,
           });
-        } else if (formData.payment_method === 'partial' && (parseLocaleFloat(formData.payment_amount) || 0) > 0) {
+        } else if (formData.payment_method === 'partial') {
           await api.post('/api/printing-payments/', {
             job: createdJob.data.id,
             amount: parseLocaleFloat(formData.payment_amount),
             payment_method: 'partial',
             reference: formData.reference,
+            notes: formData.notes,
           });
         }
       }
-      addToast(t('common.save') || 'Saved', 'success');
+      addToast(t('printing.created'), 'success');
       navigate('/printing');
     } catch (err) {
       console.error(err);
@@ -376,42 +399,111 @@ const PrintingFormPage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <input
-              value={formData.bill_number}
-              onChange={(e) => setFormData((p) => ({ ...p, bill_number: e.target.value }))}
-              placeholder={t('printing.billNumber')}
-              className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-            <select
-              value={formData.payment_method}
-              onChange={(e) => setFormData((p) => ({ ...p, payment_method: e.target.value }))}
-              className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            >
-              <option value="cash">{t('printing.cash')}</option>
-              <option value="partial">{t('printing.partial')}</option>
-              <option value="credit">{t('printing.credit')}</option>
-            </select>
-            {!isEdit && formData.payment_method === 'partial' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                {t('printing.billNumber')}
+              </label>
               <input
-                value={formData.payment_amount}
-                onChange={(e) => setFormData((p) => ({ ...p, payment_amount: normalizeNumeralString(e.target.value) }))}
-                type="text"
-                inputMode="decimal"
-                placeholder={t('printing.paymentAmount')}
-                className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                value={formData.bill_number}
+                onChange={(e) => setFormData((p) => ({ ...p, bill_number: e.target.value }))}
+                placeholder={t('printing.billNumber')}
+                className="w-full px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
               />
-            )}
-            <input
-              value={formData.reference}
-              onChange={(e) => setFormData((p) => ({ ...p, reference: e.target.value }))}
-              placeholder={t('printing.reference')}
-              className="px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                {t('common.notes')}
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
+                rows={2}
+                placeholder={t('common.notesPlaceholder')}
+                className="w-full px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              />
+            </div>
           </div>
 
+          {!isEdit ? (
+            <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50/60 dark:bg-green-900/10 p-3 space-y-3">
+              <h2 className="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1">
+                <CurrencyDollarIcon className="h-4 w-4 text-green-600" />
+                {t('printing.paymentSectionTitle')}
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    {t('printing.paymentMethodLabel')}
+                  </label>
+                  <select
+                    value={formData.payment_method}
+                    onChange={(e) => setFormData((p) => ({ ...p, payment_method: e.target.value, payment_amount: '' }))}
+                    className="w-full px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="cash">{t('printing.cash')}</option>
+                    <option value="partial">{t('printing.partial')}</option>
+                    <option value="credit">{t('printing.credit')}</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.payment_method === 'cash' && t('printing.paymentHintCash')}
+                    {formData.payment_method === 'partial' && t('printing.paymentHintPartial')}
+                    {formData.payment_method === 'credit' && t('printing.paymentHintCredit')}
+                  </p>
+                </div>
+
+                {formData.payment_method === 'partial' && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      {t('printing.paymentAmount')} *
+                    </label>
+                    <input
+                      value={formData.payment_amount}
+                      onChange={(e) => setFormData((p) => ({ ...p, payment_amount: normalizeNumeralString(e.target.value) }))}
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={t('printing.paymentAmountPlaceholder')}
+                      className="w-full px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                      required
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    {t('printing.reference')}
+                  </label>
+                  <input
+                    value={formData.reference}
+                    onChange={(e) => setFormData((p) => ({ ...p, reference: e.target.value }))}
+                    placeholder={t('printing.reference')}
+                    className="w-full px-2.5 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 p-2 border border-gray-200 dark:border-gray-700">
+                  <div className="text-gray-500">{t('printing.grandTotal')}</div>
+                  <div className="font-bold text-gray-900 dark:text-white">AFN {grandSellingTotal.toFixed(2)}</div>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 p-2 border border-gray-200 dark:border-gray-700">
+                  <div className="text-gray-500">{t('printing.amountPayingNow')}</div>
+                  <div className="font-bold text-green-700 dark:text-green-300">AFN {paymentAmountNow.toFixed(2)}</div>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-gray-800/80 p-2 border border-gray-200 dark:border-gray-700">
+                  <div className="text-gray-500">{t('printing.remainingAfterPayment')}</div>
+                  <div className="font-bold text-red-700 dark:text-red-300">AFN {remainingAfterPayment.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">{t('printing.editPaymentsOnDetails')}</p>
+          )}
+
           <button disabled={loading} className="btn-form-green text-xs">
-            {loading ? t('common.saving') : t('common.save')}
+            {loading ? t('common.saving') : isEdit ? t('common.save') : t('printing.createRecord')}
           </button>
         </form>
       </div>

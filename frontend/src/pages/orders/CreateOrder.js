@@ -138,7 +138,7 @@ function mapApiOrderItemToLine(oi, itemsCatalog) {
     price_per_unit: priceStr,
     itemSearch: inv?.name || '',
     showItemDropdown: false,
-    isCollapsed: false
+    isCollapsed: true
   };
 }
 

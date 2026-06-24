@@ -6,9 +6,10 @@ import { useDarkMode } from '../../context/DarkModeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTranslation } from '../../i18n/fallback';
 import api from '../../services/api';
+import { canAccessModule } from '../../utils/permissions';
 
 const Sidebar = ({ isMobileOpen, onMobileClose }) => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { isDark, toggleDarkMode } = useDarkMode();
   const { currentLanguage, changeLanguage } = useLanguage();
   const { t } = useTranslation();
@@ -42,7 +43,7 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
     { name: t('nav.purchases'), href: '/purchases', key: 'purchases' },
     { name: t('nav.suppliers'), href: '/suppliers', key: 'suppliers' },
     { name: t('nav.expenses'), href: '/expenses', key: 'expenses' },
-    { name: t('nav.rozNamcha'), href: '/roznamcha', key: 'rozNamcha' },
+    { name: t('nav.rozNamcha'), href: '/roznamcha', key: 'roznamcha' },
     { name: t('nav.rent'), href: '/rent', key: 'rent' },
     { name: t('nav.printingPress'), href: '/printing', key: 'printingPress' },
     { name: t('nav.reports'), href: '/reports', key: 'reports' },
@@ -50,7 +51,7 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
     { name: t('nav.recordLookup'), href: '/records/search', key: 'recordLookup' },
     { name: t('nav.settings'), href: '/settings', key: 'settings' },
     { name: t('nav.userManagement'), href: '/users', key: 'users' },
-  ];
+  ].filter((item) => canAccessModule(user, item.key));
 
   const handleNavClick = () => {
     if (onMobileClose) onMobileClose();

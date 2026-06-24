@@ -102,6 +102,11 @@ class PrintingPayment(models.Model):
         super().save(*args, **kwargs)
         self.job.update_payment_status()
 
+    def delete(self, *args, **kwargs):
+        job = self.job
+        super().delete(*args, **kwargs)
+        job.update_payment_status()
+
     def __str__(self):
         return f'Payment #{self.id} for Printing Job #{self.job_id}'
 

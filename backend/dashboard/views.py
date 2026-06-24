@@ -83,14 +83,27 @@ def _delivered_order_cogs_for_period(start_datetime, end_datetime):
 class AdminDashboardView(APIView):
     def get(self, request):
         try:
-            # Get period parameter (daily, weekly, monthly, yearly)
+            # Get period parameter (daily, weekly, monthly, yearly, custom)
             period = request.query_params.get('period', 'monthly')
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
             
             # Calculate date range based on period (use timezone-aware datetime)
             now = timezone.now()
             today = now.date()
             
-            if period == 'daily':
+            if period == 'custom' and date_from and date_to:
+                try:
+                    start_date = datetime.strptime(date_from, '%Y-%m-%d').date()
+                    end_date = datetime.strptime(date_to, '%Y-%m-%d').date()
+                    if start_date > end_date:
+                        start_date, end_date = end_date, start_date
+                    start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+                    end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+                except ValueError:
+                    start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+                    end_datetime = now
+            elif period == 'daily':
                 start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
                 end_datetime = now
             elif period == 'weekly':

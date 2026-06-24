@@ -32,7 +32,9 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [transactionPage, setTransactionPage] = useState(1);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
-  const [selectedPeriod, setSelectedPeriod] = useState('daily'); // daily, weekly, monthly, yearly
+  const [selectedPeriod, setSelectedPeriod] = useState('daily'); // daily, weekly, monthly, yearly, custom
+  const [customDateFrom, setCustomDateFrom] = useState('');
+  const [customDateTo, setCustomDateTo] = useState('');
   const transactionsPerPage = 5;
 
   useEffect(() => {
@@ -129,15 +131,22 @@ const Dashboard = () => {
   }, [t]);
 
   const fetchDashboardData = useCallback(async () => {
+    if (selectedPeriod === 'custom' && (!customDateFrom || !customDateTo)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/api/dashboard/admin-dashboard/', {
-        params: {
-          period: selectedPeriod,
-          _t: Date.now()
-        }
-      });
+      const params = {
+        period: selectedPeriod,
+        _t: Date.now(),
+      };
+      if (selectedPeriod === 'custom') {
+        params.date_from = customDateFrom;
+        params.date_to = customDateTo;
+      }
+      const response = await api.get('/api/dashboard/admin-dashboard/', { params });
       setDashboardData(response.data);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -145,7 +154,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, customDateFrom, customDateTo]);
 
   const fetchFinancialAnalytics = useCallback(async () => {
     try {
@@ -341,7 +350,7 @@ const Dashboard = () => {
 
       {/* Period Filter */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-2 mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
             {t('dashboard.filterLabel')}:
           </span>
@@ -354,7 +363,38 @@ const Dashboard = () => {
             <option value="weekly">{t('dashboard.weekly')}</option>
             <option value="monthly">{t('dashboard.monthly')}</option>
             <option value="yearly">{t('dashboard.yearly')}</option>
+            <option value="custom">{t('dashboard.customRange')}</option>
           </select>
+          {selectedPeriod === 'custom' && (
+            <>
+              <span className="text-xs text-gray-500">{t('dashboard.dateFrom')}</span>
+              <input
+                id="dashboard-date-from"
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+                aria-label={t('dashboard.dateFrom')}
+                className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
+              />
+              <span className="text-xs text-gray-500">{t('dashboard.dateTo')}</span>
+              <input
+                id="dashboard-date-to"
+                type="date"
+                value={customDateTo}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+                aria-label={t('dashboard.dateTo')}
+                className="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={fetchDashboardData}
+                disabled={!customDateFrom || !customDateTo}
+                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {t('dashboard.apply')}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

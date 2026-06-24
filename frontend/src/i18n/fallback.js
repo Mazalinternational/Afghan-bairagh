@@ -56,7 +56,8 @@ const translations = {
       select: "Select",
       close: "Close",
       yes: "Yes",
-      no: "No"
+      no: "No",
+      apply: "Apply"
     },
     nav: {
       dashboard: "Dashboard",
@@ -114,6 +115,22 @@ const translations = {
       billNumber: "Bill No.",
       printBill: "Print Bill",
       viewBill: "View Bill",
+      payments: "Payments",
+      paymentExceedsDue: "Payment exceeds remaining balance",
+      paymentSectionTitle: "Payment",
+      paymentMethodLabel: "Payment Method",
+      paymentHintCash: "Pay full amount now",
+      paymentHintPartial: "Pay partial amount now, rest later",
+      paymentHintCredit: "No payment now, pay later",
+      paymentAmountPlaceholder: "Enter amount to pay now",
+      amountPayingNow: "Amount paying now",
+      remainingAfterPayment: "Remaining after payment",
+      partialPaymentRequired: "Enter a partial payment amount greater than zero",
+      partialPaymentExceedsTotal: "Partial payment cannot exceed the total",
+      lineItemsHeading: "Line items",
+      lineProfit: "Line profit",
+      perMeterPriceLegacy: "Per meter (legacy)",
+      editPaymentsOnDetails: "Manage payments on the payments page after saving.",
       created: "Printing record created successfully",
       failedSave: "Failed to save printing record",
       pressBillLinesTruncated: "Showing first {{shown}} of {{total}} lines on this bill. Footer totals are for the full job."
@@ -492,7 +509,11 @@ const translations = {
       insufficientStock: "Insufficient stock",
       currentStock: "Current stock",
       requested: "Requested",
-      shortage: "Shortage"
+      shortage: "Shortage",
+      customRange: "Custom Range",
+      dateFrom: "From",
+      dateTo: "To",
+      apply: "Apply"
     },
     sales: {
       title: "Sales",
@@ -951,6 +972,8 @@ const translations = {
       phoneColumn: "Phone",
       paymentColumn: "Payment",
       noPaymentsYet: "No payments",
+      paymentHistory: "Payment History",
+      amount: "Amount",
       paymentLine: "#{{id}}: {{amount}} ({{method}})",
       editBill: "Edit bill",
       editBillTooltipDraft: "Edit line items and totals",
@@ -1999,7 +2022,8 @@ const translations = {
       select: "انتخاب",
       close: "بستن",
       yes: "بله",
-      no: "خیر"
+      no: "خیر",
+      apply: "اعمال"
     },
     nav: {
       dashboard: "داشبورد",
@@ -2057,6 +2081,22 @@ const translations = {
       billNumber: "نمبر بل",
       printBill: "چاپ بل",
       viewBill: "مشاهده بل",
+      payments: "پرداخت‌ها",
+      paymentExceedsDue: "مبلغ پرداخت از باقی‌مانده بیشتر است",
+      paymentSectionTitle: "پرداخت",
+      paymentMethodLabel: "روش پرداخت",
+      paymentHintCash: "تمام مبلغ همین حالا پرداخت می‌شود",
+      paymentHintPartial: "قسمتی حالا پرداخت می‌شود، باقی بعداً",
+      paymentHintCredit: "فعلاً پرداخت ندارد، بعداً پرداخت شود",
+      paymentAmountPlaceholder: "مبلغ پرداخت فعلی را وارد کنید",
+      amountPayingNow: "مبلغ پرداخت فعلی",
+      remainingAfterPayment: "باقی‌مانده بعد از پرداخت",
+      partialPaymentRequired: "مبلغ پرداخت قسمی باید بیشتر از صفر باشد",
+      partialPaymentExceedsTotal: "پرداخت قسمی نمی‌تواند از مجموع بیشتر باشد",
+      lineItemsHeading: "اقلام",
+      lineProfit: "سود ردیف",
+      perMeterPriceLegacy: "فی متر (قدیمی)",
+      editPaymentsOnDetails: "پس از ذخیره، پرداخت‌ها را از صفحه پرداخت‌ها مدیریت کنید.",
       created: "سفارش چاپ با موفقیت ثبت شد",
       failedSave: "ثبت سفارش چاپ ناموفق بود",
       pressBillLinesTruncated: "فقط {{shown}} سطر اول از {{total}} سطر در این صفحه نمایش داده شد. مجموع پایین برای کل کار است."
@@ -2404,7 +2444,11 @@ const translations = {
       insufficientStock: "موجودی کافی نیست",
       currentStock: "موجودی فعلی",
       requested: "درخواست‌شده",
-      shortage: "کمبود"
+      shortage: "کمبود",
+      customRange: "بازه دلخواه",
+      dateFrom: "از تاریخ",
+      dateTo: "تا تاریخ",
+      apply: "اعمال"
     },
     sales: {
       title: "فروش",
@@ -2853,6 +2897,8 @@ const translations = {
       phoneColumn: "تماس",
       paymentColumn: "پرداخت",
       noPaymentsYet: "پرداختی نیست",
+      paymentHistory: "تاریخچه پرداخت",
+      amount: "مبلغ",
       paymentLine: "#{{id}}: {{amount}} ({{method}})",
       editBill: "تصحیح بل",
       editBillTooltipDraft: "تصحیح اقلام و جمع",

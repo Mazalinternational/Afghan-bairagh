@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusIcon, PrinterIcon, PencilIcon, TrashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PrinterIcon, PencilIcon, TrashIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from '../../i18n/fallback';
 import { useToast } from '../../context/ToastContext';
 import api from '../../services/api';
@@ -125,9 +125,10 @@ const PrintingPressPage = () => {
                     <td className="px-2 py-1.5 text-xs">AFN {parseFloat(r.total_price || 0).toFixed(2)}</td>
                     <td className="px-2 py-1.5 text-xs">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => navigate(`/printing/${r.id}`)} className="p-1 rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"><EyeIcon className="h-4 w-4" /></button>
-                        <button onClick={() => navigate(`/printing/${r.id}/edit`)} className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"><PencilIcon className="h-4 w-4" /></button>
-                        <button onClick={() => handleDeleteRecord(r.id)} className="p-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><TrashIcon className="h-4 w-4" /></button>
+                        <button onClick={() => navigate(`/printing/${r.id}`)} className="p-1 rounded text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30" title={t('printing.payments')}><CurrencyDollarIcon className="h-4 w-4" /></button>
+                        <button onClick={() => navigate(`/printing/${r.id}/bill`)} className="p-1 rounded text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30" title={t('printing.printBill')}><PrinterIcon className="h-4 w-4" /></button>
+                        <button onClick={() => navigate(`/printing/${r.id}/edit`)} className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30" title={t('common.edit')}><PencilIcon className="h-4 w-4" /></button>
+                        <button onClick={() => handleDeleteRecord(r.id)} className="p-1 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30" title={t('common.delete')}><TrashIcon className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>

@@ -50,6 +50,7 @@ import RentForm from './pages/rent/RentForm';
 import RentDetails from './pages/rent/RentDetails';
 import PrintingPressPage from './pages/printing/PrintingPressPage';
 import PrintingRecordDetails from './pages/printing/PrintingRecordDetails';
+import PrintingBillPage from './pages/printing/PrintingBillPage';
 import PrintingFormPage from './pages/printing/PrintingFormPage';
 import BankPage from './pages/bank/BankPage';
 import { AuthProvider } from './context/AuthContext';
@@ -58,12 +59,15 @@ import { DarkModeProvider } from './context/DarkModeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { SettingsProvider } from './context/SettingsContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import PermissionGate from './components/common/PermissionGate';
 import PublicRoute from './components/common/PublicRoute';
 
 function PrivateRoute({ children }) {
   return (
     <ProtectedRoute>
-      <Layout>{children}</Layout>
+      <PermissionGate>
+        <Layout>{children}</Layout>
+      </PermissionGate>
     </ProtectedRoute>
   );
 }
@@ -136,6 +140,7 @@ function App() {
               <Route path="/printing" element={<PrivateRoute><PrintingPressPage /></PrivateRoute>} />
               <Route path="/printing/create" element={<PrivateRoute><PrintingFormPage /></PrivateRoute>} />
               <Route path="/printing/:id/edit" element={<PrivateRoute><PrintingFormPage /></PrivateRoute>} />
+              <Route path="/printing/:id/bill" element={<PrivateRoute><PrintingBillPage /></PrivateRoute>} />
               <Route path="/printing/:id" element={<PrivateRoute><PrintingRecordDetails /></PrivateRoute>} />
               <Route path="/bank" element={<PrivateRoute><BankPage /></PrivateRoute>} />
               <Route path="/quotations" element={<PrivateRoute><QuotationsList /></PrivateRoute>} />

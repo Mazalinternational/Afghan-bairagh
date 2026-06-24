@@ -25,3 +25,11 @@ export function setAccessToken(access) {
   }
   localStorage.setItem('token', access);
 }
+
+export function setRefreshToken(refresh) {
+  if (sessionStorage.getItem('token') || sessionStorage.getItem('refreshToken')) {
+    sessionStorage.setItem('refreshToken', refresh);
+    return;
+  }
+  localStorage.setItem('refreshToken', refresh);
+}

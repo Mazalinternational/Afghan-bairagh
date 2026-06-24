@@ -553,8 +553,13 @@ const CustomerLedger = () => {
       0
     );
     const totalPaid = orderPaid + salePaid + directPaid;
-    const totalDue = Math.max(0, totalBilled - totalPaid);
-    return { totalOrders, totalSales, totalDirectSales, totalBilled, totalPaid, totalDue };
+    const activityDue = Math.max(0, totalBilled - totalPaid);
+    const previousBalanceDue = Math.max(
+      0,
+      parseFloat(customer?.previous_balance_remaining ?? customer?.previous_balance ?? 0) || 0
+    );
+    const totalDue = activityDue + previousBalanceDue;
+    return { totalOrders, totalSales, totalDirectSales, totalBilled, totalPaid, activityDue, previousBalanceDue, totalDue };
   };
 
   const handleViewOrder = (orderId) => {

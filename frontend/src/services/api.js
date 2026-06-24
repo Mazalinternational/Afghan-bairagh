@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getAccessToken } from '../utils/tokenStorage';
+import { getAccessToken, getRefreshToken, setAccessToken, setRefreshToken, clearAuthTokens } from '../utils/tokenStorage';
 
 function isLocalApiUrl(url) {
   return !url || /localhost|127\.0\.0\.1/i.test(url);
@@ -85,11 +85,10 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor: invalid JWTs still run authentication and return 401 even on AllowAny
-// routes. Clear the bad token and retry once without Authorization so public API works.
+// Response interceptor: refresh JWT on 401 before logging out.
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
 
@@ -103,22 +102,33 @@ api.interceptors.response.use(
       !originalRequest._authRetry &&
       getAccessToken()
     ) {
-      originalRequest._authRetry = true;
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('refreshToken');
-      if (originalRequest.headers) {
-        delete originalRequest.headers.Authorization;
+      const refresh = getRefreshToken();
+      if (refresh) {
+        try {
+          const refreshResponse = await axios.post(
+            `${API_BASE_URL}/api/auth/token/refresh/`,
+            { refresh },
+            { skipAuthRetry: true }
+          );
+          const { access, refresh: newRefresh } = refreshResponse.data;
+          setAccessToken(access);
+          if (newRefresh) {
+            setRefreshToken(newRefresh);
+          }
+          originalRequest._authRetry = true;
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${access}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          clearAuthTokens();
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        }
       }
-      return api(originalRequest);
     }
 
     if (status === 401 && originalRequest?._authRetry) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      sessionStorage.removeItem('token');
-      sessionStorage.removeItem('refreshToken');
+      clearAuthTokens();
       window.location.href = '/login';
       return Promise.reject(error);
     }
