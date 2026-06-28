@@ -24,11 +24,13 @@ class SupplierSerializer(serializers.ModelSerializer):
         return float(obj.previous_balance_remaining)
     
     def get_calculated_balance(self, obj):
-        """Calculate balance from purchases and payments for accuracy"""
+        """Purchase due + remaining previous balance (matches supplier ledger total due)."""
         from django.db.models import Sum
         total_cost = obj.purchases.aggregate(total=Sum('cost'))['total'] or 0
         total_paid = Payment.objects.filter(purchase__supplier=obj).aggregate(total=Sum('amount'))['total'] or 0
-        return float(total_cost - total_paid)
+        purchase_due = max(0, float(total_cost - total_paid))
+        prev_remaining = float(obj.previous_balance_remaining)
+        return purchase_due + prev_remaining
     
     def get_total_purchases(self, obj):
         """Get total purchase amount"""

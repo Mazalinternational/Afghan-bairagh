@@ -298,13 +298,23 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
 
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
+
+    const totalPurchases = purchases.reduce((sum, p) => sum + (parseFloat(p.cost) || 0), 0);
+    const totalPaid = purchases.reduce((sum, p) => sum + (parseFloat(p.total_paid) || 0), 0);
+    const purchaseDue = purchases.reduce((sum, p) => sum + (parseFloat(p.remaining_amount) || 0), 0);
+    const previousBalanceDue = Math.max(
+      0,
+      parseFloat(supplier.previous_balance_remaining ?? supplier.previous_balance ?? 0) || 0
+    );
+    const totalDue = purchaseDue + previousBalanceDue;
+
     const supplierInfo = [
       [`Name:`, supplier.name || 'N/A'],
       [`Contact Person:`, supplier.contact_person || 'N/A'],
       [`Phone:`, supplier.phone || 'N/A'],
       [`Email:`, supplier.email || 'N/A'],
       [`Address:`, supplier.address || 'N/A'],
-      [`Balance:`, `AFN ${(parseFloat(supplier.calculated_balance || supplier.balance || 0)).toFixed(2)}`]
+      [`Balance:`, `AFN ${totalDue.toFixed(2)}`]
     ];
 
     supplierInfo.forEach(([label, value]) => {
@@ -318,10 +328,6 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
     startY += 5;
 
     // Summary
-    const totalPurchases = purchases.reduce((sum, p) => sum + (parseFloat(p.cost) || 0), 0);
-    const totalPaid = purchases.reduce((sum, p) => sum + (parseFloat(p.total_paid) || 0), 0);
-    const totalDue = purchases.reduce((sum, p) => sum + (parseFloat(p.remaining_amount) || 0), 0);
-
     doc.setFontSize(14);
     doc.setTextColor(31, 41, 55);
     doc.text('Financial Summary', 14, startY);
@@ -333,6 +339,7 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
       body: [
         ['Total Purchases', totalPurchases.toFixed(2)],
         ['Total Paid', totalPaid.toFixed(2)],
+        ['Previous Balance Due', previousBalanceDue.toFixed(2)],
         ['Total Due', totalDue.toFixed(2)]
       ],
       theme: 'striped',

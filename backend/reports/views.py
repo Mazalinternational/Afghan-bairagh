@@ -69,7 +69,9 @@ class SuppliersWithBalanceReport(APIView):
         for s in suppliers:
             total_cost = s.total_purchases or 0
             total_paid_amount = Payment.objects.filter(purchase__supplier=s).aggregate(total=Sum('amount'))['total'] or 0
-            calculated_balance = total_cost - total_paid_amount
+            purchase_due = max(0, float(total_cost - total_paid_amount))
+            prev_remaining = float(s.previous_balance_remaining)
+            calculated_balance = purchase_due + prev_remaining
             
             # Apply filters
             min_balance = request.query_params.get('min_balance')

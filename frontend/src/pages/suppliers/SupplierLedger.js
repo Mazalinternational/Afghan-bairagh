@@ -388,22 +388,28 @@ const SupplierLedger = () => {
   if (loading) return <div className="flex justify-center items-center min-h-screen"><div className="h-10 w-10 animate-spin border-b-2 border-blue-600 rounded-full" /></div>;
   if (!supplier) return <div className="text-center py-8"><p className="text-gray-500">{t('suppliers.noSuppliersFound')}</p></div>;
 
-  const getTotalDue = () => {
-    return purchases.reduce((sum, p) => {
+  const calculateTotals = () => {
+    const activityDue = purchases.reduce((sum, p) => {
       const cost = parseFloat(p.cost || 0);
       const paid = parseFloat(p.total_paid || (p.payments && Array.isArray(p.payments) ? p.payments.reduce((s, pay) => s + parseFloat(pay.amount || 0), 0) : 0));
-      const remaining = p.remaining_amount !== undefined && p.remaining_amount !== null 
-        ? parseFloat(p.remaining_amount) 
+      const remaining = p.remaining_amount !== undefined && p.remaining_amount !== null
+        ? parseFloat(p.remaining_amount)
         : (cost - paid);
       return sum + Math.max(0, remaining);
-    }, 0).toFixed(2);
-  };
-  
-  const getTotalPaid = () => {
-    return purchases.reduce((sum, p) => {
+    }, 0);
+    const previousBalanceDue = Math.max(
+      0,
+      parseFloat(supplier?.previous_balance_remaining ?? supplier?.previous_balance ?? 0) || 0
+    );
+    const totalDue = activityDue + previousBalanceDue;
+    const totalPaid = purchases.reduce((sum, p) => {
       return sum + parseFloat(p.total_paid || (p.payments && Array.isArray(p.payments) ? p.payments.reduce((s, pay) => s + parseFloat(pay.amount || 0), 0) : 0));
-    }, 0).toFixed(2);
+    }, 0);
+    const totalPurchases = purchases.reduce((sum, p) => sum + parseFloat(p.cost || 0), 0);
+    return { activityDue, previousBalanceDue, totalDue, totalPaid, totalPurchases };
   };
+
+  const totals = calculateTotals();
 
   return (
     <div className="space-y-6">
@@ -529,17 +535,17 @@ const SupplierLedger = () => {
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 px-2.5 py-2 rounded-lg shadow-sm border-l-4 border-blue-500 flex flex-col justify-center min-h-0">
           <div className="absolute -top-4 -right-4 w-14 h-14 bg-blue-700/25 dark:bg-blue-400/20 rounded-full pointer-events-none" />
           <p className="text-[9px] font-semibold text-gray-900 dark:text-white mb-0.5 leading-tight">{t('reportsPage.totalPurchases')}</p>
-          <div className="text-base font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-tight">AFN {purchases.reduce((sum, p) => sum + parseFloat(p.cost || 0), 0).toFixed(2)}</div>
+          <div className="text-base font-bold text-blue-600 dark:text-blue-400 tabular-nums leading-tight">AFN {totals.totalPurchases.toFixed(2)}</div>
         </div>
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 px-2.5 py-2 rounded-lg shadow-sm border-l-4 border-green-500 flex flex-col justify-center min-h-0">
           <div className="absolute -top-4 -right-4 w-14 h-14 bg-green-700/25 dark:bg-green-400/20 rounded-full pointer-events-none" />
           <p className="text-[9px] font-semibold text-gray-900 dark:text-white mb-0.5 leading-tight">{t('reportsPage.paid')}</p>
-          <div className="text-base font-bold text-green-600 dark:text-green-400 tabular-nums leading-tight">AFN {getTotalPaid()}</div>
+          <div className="text-base font-bold text-green-600 dark:text-green-400 tabular-nums leading-tight">AFN {totals.totalPaid.toFixed(2)}</div>
         </div>
         <div className="relative overflow-hidden bg-white dark:bg-gray-800 px-2.5 py-2 rounded-lg shadow-sm border-l-4 border-red-500 flex flex-col justify-center min-h-0">
           <div className="absolute -top-4 -right-4 w-14 h-14 bg-red-700/25 dark:bg-red-400/20 rounded-full pointer-events-none" />
           <p className="text-[9px] font-semibold text-gray-900 dark:text-white mb-0.5 leading-tight">{t('reportsPage.due')}</p>
-          <div className="text-base font-bold text-red-600 dark:text-red-400 tabular-nums leading-tight">AFN {getTotalDue()}</div>
+          <div className="text-base font-bold text-red-600 dark:text-red-400 tabular-nums leading-tight">AFN {totals.totalDue.toFixed(2)}</div>
         </div>
       </div>
 

@@ -46,11 +46,14 @@ def generate_supplier_ledger_pdf(supplier, purchases, statuses=None):
     # Summary Cards
     total_purchases = sum(float(p.cost) for p in purchases)
     total_paid = sum(float(p.total_paid) for p in purchases)
-    total_due = sum(float(p.remaining_amount) for p in purchases)
+    purchase_due = sum(float(p.remaining_amount) for p in purchases)
+    prev_remaining = float(supplier.previous_balance_remaining)
+    total_due = purchase_due + prev_remaining
     
     summary_data = [
         ['Total Purchases', f"AFN {total_purchases:,.2f}"],
         ['Total Paid', f"AFN {total_paid:,.2f}"],
+        ['Previous Balance Due', f"AFN {prev_remaining:,.2f}"],
         ['Total Due', f"AFN {total_due:,.2f}"]
     ]
     

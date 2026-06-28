@@ -329,7 +329,9 @@ class AdminDashboardView(APIView):
                 # Calculate actual balance: total purchases cost - total payments
                 total_cost = supplier.purchases.aggregate(total=Sum('cost'))['total'] or 0
                 total_paid_amount = SupplierPayment.objects.filter(purchase__supplier=supplier).aggregate(total=Sum('amount'))['total'] or 0
-                calculated_balance = total_cost - total_paid_amount
+                purchase_due = max(0, float(total_cost - total_paid_amount))
+                prev_remaining = float(supplier.previous_balance_remaining)
+                calculated_balance = purchase_due + prev_remaining
                 
                 # Only include suppliers with balance > 0
                 if calculated_balance > 0:
