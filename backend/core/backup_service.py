@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+import shutil
 import sqlite3
 import tempfile
 import uuid
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from django.apps import apps
 from django.conf import settings as django_settings
+from django.db import connections
 from django.db.models.fields.files import FieldFile
 from django.utils import timezone
 
@@ -57,7 +59,84 @@ def cell_value(val):
     return str(val)
 
 
-def build_excel_bytes():
+RANGE_FIELD_CANDIDATES = [
+    'created_at',
+    'date',
+    'order_date',
+    'sale_date',
+    'quotation_date',
+    'purchase_date',
+    'payment_date',
+    'job_date',
+    'transaction_date',
+    'rent_date',
+    'month',
+    'join_date',
+    'loan_date',
+    'date_given',
+    'deduction_date',
+    'updated_at',
+]
+
+
+def _normalize_range_bounds(start_date=None, end_date=None):
+    if start_date and isinstance(start_date, datetime):
+        start_dt = start_date
+    elif start_date:
+        start_dt = datetime.combine(start_date, datetime.min.time())
+    else:
+        start_dt = None
+
+    if end_date and isinstance(end_date, datetime):
+        end_dt = end_date
+    elif end_date:
+        end_dt = datetime.combine(end_date, datetime.max.time())
+    else:
+        end_dt = None
+
+    if start_dt and timezone.is_naive(start_dt):
+        start_dt = timezone.make_aware(start_dt, timezone.get_current_timezone())
+    if end_dt and timezone.is_naive(end_dt):
+        end_dt = timezone.make_aware(end_dt, timezone.get_current_timezone())
+
+    return start_dt, end_dt
+
+
+def _pick_range_field(model):
+    fields = {f.name: f for f in model._meta.concrete_fields}
+    for name in RANGE_FIELD_CANDIDATES:
+        field = fields.get(name)
+        if field is not None:
+            return field
+    return None
+
+
+def _apply_date_range(qs, model, start_date=None, end_date=None):
+    if not start_date and not end_date:
+        return qs
+
+    field = _pick_range_field(model)
+    if field is None:
+        return qs
+
+    lookup = field.name
+    filters = {}
+    if getattr(field, 'get_internal_type', lambda: '')() == 'DateTimeField':
+        start_dt, end_dt = _normalize_range_bounds(start_date, end_date)
+        if start_dt:
+            filters[f'{lookup}__gte'] = start_dt
+        if end_dt:
+            filters[f'{lookup}__lte'] = end_dt
+    else:
+        if start_date:
+            filters[f'{lookup}__gte'] = start_date
+        if end_date:
+            filters[f'{lookup}__lte'] = end_date
+
+    return qs.filter(**filters)
+
+
+def build_excel_bytes(start_date=None, end_date=None):
     """
     Export every non-proxy model: concrete columns plus comma-separated related PKs for each
     local many-to-many. Uses a standard (non-write_only) workbook so Excel reliably contains data.
@@ -100,7 +179,7 @@ def build_excel_bytes():
 
         ws.append(headers)
 
-        qs = model.objects.all()
+        qs = _apply_date_range(model.objects.all(), model, start_date=start_date, end_date=end_date)
         prefetch = [m.name for m in m2m_local]
         if prefetch:
             qs = qs.prefetch_related(*prefetch)
@@ -172,6 +251,70 @@ def build_sql_bytes():
             pass
     out.seek(0)
     return out
+
+
+def restore_sql_bytes(sql_bytes):
+    engine = django_settings.DATABASES['default']['ENGINE']
+    if 'sqlite' not in engine:
+        raise RuntimeError('Restore is only supported for SQLite databases.')
+
+    db_path = Path(django_settings.DATABASES['default']['NAME'])
+    if not db_path.parent.exists():
+        raise RuntimeError('Database directory not found.')
+
+    fd, tmp_path = tempfile.mkstemp(suffix='.sqlite3')
+    os.close(fd)
+    try:
+        sql_text = sql_bytes.decode('utf-8')
+        temp_conn = sqlite3.connect(tmp_path)
+        try:
+            temp_conn.executescript(sql_text)
+            temp_conn.commit()
+        finally:
+            temp_conn.close()
+
+        connections.close_all()
+
+        src = sqlite3.connect(tmp_path)
+        dst = sqlite3.connect(str(db_path))
+        try:
+            src.backup(dst)
+            dst.commit()
+        finally:
+            dst.close()
+            src.close()
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+def restore_media_tree(extracted_media_root: Path):
+    if not extracted_media_root.exists():
+        return
+
+    media_root = Path(django_settings.MEDIA_ROOT)
+    media_root.mkdir(parents=True, exist_ok=True)
+
+    for child in list(media_root.iterdir()):
+        if child.name == 'backups':
+            continue
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            try:
+                child.unlink()
+            except OSError:
+                pass
+
+    for path in extracted_media_root.rglob('*'):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(extracted_media_root)
+        dest = media_root / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dest)
 
 
 def _should_skip_media_path(full_path: Path, media_root: Path) -> bool:

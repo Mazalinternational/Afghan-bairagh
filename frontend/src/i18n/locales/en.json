@@ -64,6 +64,9 @@
     "recordLookup": "Record Lookup",
     "sales": "Sales",
     "quotations": "Quotations",
+    "settings": "Settings",
+    "backup": "Backup",
+    "userManagement": "User Management",
     "logout": "Logout"
   },
   "printing": {

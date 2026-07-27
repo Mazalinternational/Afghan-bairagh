@@ -17,11 +17,13 @@ export const NAV_PERMISSION_KEYS = [
   'bank',
   'recordLookup',
   'settings',
+  'backup',
   'users',
 ];
 
 const PATH_RULES = [
   ['/users', 'users'],
+  ['/settings/backup', 'backup'],
   ['/settings', 'settings'],
   ['/records/search', 'recordLookup'],
   ['/reports', 'reports'],
@@ -45,6 +47,10 @@ export function canAccessModule(user, moduleKey) {
   if (!user) return false;
   if (user.role === 'admin' || user.is_superuser) return true;
   const perms = Array.isArray(user.permissions) ? user.permissions : [];
+  // Backup sits under settings for staff who already have settings access
+  if (moduleKey === 'backup' && (perms.includes('backup') || perms.includes('settings'))) {
+    return true;
+  }
   return perms.includes(moduleKey);
 }
 

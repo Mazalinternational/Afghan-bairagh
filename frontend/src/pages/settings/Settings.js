@@ -523,6 +523,14 @@ const Settings = () => {
               <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
                 <button
                   type="button"
+                  onClick={() => navigate('/settings/backup')}
+                  className="inline-flex items-center justify-center gap-1 w-full sm:w-auto px-3 py-2 sm:py-1.5 text-[11px] rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  <ArrowDownTrayIcon className="h-3.5 w-3.5 shrink-0" />
+                  {t('settings.backupOpenPage')}
+                </button>
+                <button
+                  type="button"
                   onClick={() => downloadBackupFile('excel')}
                   disabled={!canManageBackup || !!backupDownloading}
                   className="inline-flex items-center justify-center gap-1 w-full sm:w-auto px-3 py-2 sm:py-1.5 text-[11px] rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"

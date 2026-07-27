@@ -41,6 +41,7 @@ import DirectSalesList from './pages/sales/DirectSalesList';
 import CreateDirectSale from './pages/sales/CreateDirectSale';
 import DirectSaleDetails from './pages/sales/DirectSaleDetails';
 import Settings from './pages/settings/Settings';
+import BackupPage from './pages/settings/BackupPage';
 import UserManagement from './pages/users/UserManagement';
 import QuotationsList from './pages/quotations/QuotationsList';
 import CreateQuotation from './pages/quotations/CreateQuotation';
@@ -132,6 +133,7 @@ function App() {
               <Route path="/sales/direct/:id" element={<PrivateRoute><DirectSaleDetails /></PrivateRoute>} />
               <Route path="/sales/direct/:id/edit" element={<PrivateRoute><CreateDirectSale /></PrivateRoute>} />
               <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/settings/backup" element={<PrivateRoute><BackupPage /></PrivateRoute>} />
               <Route path="/users" element={<PrivateRoute><UserManagement /></PrivateRoute>} />
               <Route path="/rent" element={<PrivateRoute><RentList /></PrivateRoute>} />
               <Route path="/rent/create" element={<PrivateRoute><RentForm /></PrivateRoute>} />

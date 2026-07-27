@@ -50,6 +50,7 @@ const Sidebar = ({ isMobileOpen, onMobileClose }) => {
     { name: t('nav.bank'), href: '/bank', key: 'bank' },
     { name: t('nav.recordLookup'), href: '/records/search', key: 'recordLookup' },
     { name: t('nav.settings'), href: '/settings', key: 'settings' },
+    { name: t('nav.backup'), href: '/settings/backup', key: 'backup' },
     { name: t('nav.userManagement'), href: '/users', key: 'users' },
   ].filter((item) => canAccessModule(user, item.key));
 

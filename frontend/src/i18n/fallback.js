@@ -77,6 +77,7 @@ const translations = {
       sales: "Sales",
       quotations: "Quotations",
       settings: "Settings",
+      backup: "Backup",
       userManagement: "User Management",
       logout: "Logout"
     },
@@ -327,8 +328,43 @@ const translations = {
       backupJwtVsAdminNote:
         "Django admin (/admin/) only sets a browser session for that site. This app uses JWT tokens: open the app Login page and sign in with the same username and password as your superuser. (Leaving \"Remember me\" unchecked keeps tokens in this browser tab only — the app now reads those correctly.)",
       backupNeedJwtLogin:
-        "Sign in on this app’s Login screen with your Django username and password (superuser is fine). Opening Django admin alone does not send a token to this app."
-    },
+        "Sign in on this app’s Login screen with your Django username and password (superuser is fine). Opening Django admin alone does not send a token to this app.",
+      backupPageTitle: "Backup & restore",
+      backupPageSubtitle: "Create full-system backups by period and restore from a previous backup.",
+      backupOpenPage: "Open backup page",
+      backupFullSection: "Full system backup",
+      backupRangeSection: "Backup by period",
+      backupCreateTitle: "Create backup",
+      backupRestoreSection: "Restore backup",
+      backupRestoreIntro: "Restore a previous full backup ZIP or SQL file. This replaces current database data.",
+      backupRestoreWarning: "Restore overwrites current system data. Use only trusted full backup files.",
+      backupRangeIntro:
+        "Choose daily, weekly, monthly, yearly, or a custom label. Every download is a full backup of all system data (all modules), not a filtered subset.",
+      backupAlwaysFullBadge: "Always full system data",
+      backupFullDataNote:
+        "Period only labels the file name (e.g. daily / weekly). Excel, SQL, and ZIP always include the complete database. ZIP also includes uploaded media.",
+      backupCustomLabelNote:
+        "Custom dates are stored in the file name only. The backup still contains all system data.",
+      backupPreset: "Backup period",
+      backupPresetAll: "All data",
+      backupCustomRange: "Custom range",
+      backupDateFrom: "From date",
+      backupDateTo: "To date",
+      backupRestoreChooseFile: "Choose backup file",
+      backupRestoreButton: "Restore backup",
+      backupRestoring: "Restoring backup...",
+      backupRestoreSuccess: "Backup restored successfully",
+      backupRestoreFailed: "Backup restore failed",
+      backupRangeDownloadExcel: "Download Excel",
+      backupRangeDownloadZip: "Download ZIP",
+      backupFilteredZipNote:
+        "ZIP includes Excel + SQL + media. Period filters do not reduce the data — they only label the backup.",
+      backupCustomDateRequired: "Select both start and end dates for custom range.",
+      backupExcelDesc: "All tables in one Excel workbook",
+      backupSqlDesc: "Full SQLite SQL dump for restore",
+      backupBothDesc: "Excel + SQL + media uploads (recommended)",
+      backupRecommended: "Best",
+      backupDownloadAction: "Download",    },
     userManagement: {
       title: "User Management",
       subtitle: "Manage system users and permissions",
@@ -2043,6 +2079,7 @@ const translations = {
       sales: "فروشات",
       quotations: "کوټیشن",
       settings: "تنظیمات",
+      backup: "پشتیبان",
       userManagement: "مدیریت کاربران",
       logout: "خروج"
     },
@@ -2261,8 +2298,43 @@ const translations = {
       backupJwtVsAdminNote:
         "ورود به Django admin (/admin/) فقط نشست همان سایت را فعال می‌کند. این برنامه از توکن JWT استفاده می‌کند: از صفحهٔ ورود همین برنامه با همان نام کاربری و رمز سوپریوزر وارد شوید. اگر «مرا به خاطر بسپار» خاموش باشد، توکن فقط در همین تب مرورگر است و اکنون برنامه آن را درست می‌خواند.",
       backupNeedJwtLogin:
-        "در صفحهٔ ورود همین برنامه با نام کاربری و رمز Django (سوپریوزر هم می‌شود) وارد شوید. تنها باز کردن Django admin توکن را به این برنامه نمی‌فرستد."
-    },
+        "در صفحهٔ ورود همین برنامه با نام کاربری و رمز Django (سوپریوزر هم می‌شود) وارد شوید. تنها باز کردن Django admin توکن را به این برنامه نمی‌فرستد.",
+      backupPageTitle: "پشتیبان‌گیری و بازیابی",
+      backupPageSubtitle: "پشتیبان کامل سیستم را بر اساس دوره بسازید و از پشتیبان قبلی بازیابی کنید.",
+      backupOpenPage: "باز کردن صفحه پشتیبان",
+      backupFullSection: "پشتیبان کامل سیستم",
+      backupRangeSection: "پشتیبان بر اساس دوره",
+      backupCreateTitle: "ایجاد پشتیبان",
+      backupRestoreSection: "بازیابی پشتیبان",
+      backupRestoreIntro: "یک فایل ZIP یا SQL از پشتیبان کامل قبلی را بازیابی کنید. این کار داده‌های فعلی دیتابیس را جایگزین می‌کند.",
+      backupRestoreWarning: "بازیابی، داده‌های فعلی سیستم را بازنویسی می‌کند. فقط از فایل‌های پشتیبان کامل و قابل اعتماد استفاده کنید.",
+      backupRangeIntro:
+        "روزانه، هفتگی، ماهانه، سالانه یا برچسب دلخواه را انتخاب کنید. هر دانلود پشتیبان کامل همه داده‌های سیستم (همه بخش‌ها) است، نه بخشی از داده‌ها.",
+      backupAlwaysFullBadge: "همیشه داده‌های کامل سیستم",
+      backupFullDataNote:
+        "دوره فقط نام فایل را مشخص می‌کند (مثل daily / weekly). اکسل، SQL و ZIP همیشه کل دیتابیس را شامل می‌شوند. ZIP فایل‌های آپلود شده را هم دارد.",
+      backupCustomLabelNote:
+        "تاریخ‌های دلخواه فقط در نام فایل ذخیره می‌شوند. پشتیبان همچنان همه داده‌های سیستم را دارد.",
+      backupPreset: "دوره پشتیبان",
+      backupPresetAll: "همه داده‌ها",
+      backupCustomRange: "بازه دلخواه",
+      backupDateFrom: "از تاریخ",
+      backupDateTo: "تا تاریخ",
+      backupRestoreChooseFile: "انتخاب فایل پشتیبان",
+      backupRestoreButton: "بازیابی پشتیبان",
+      backupRestoring: "در حال بازیابی پشتیبان...",
+      backupRestoreSuccess: "پشتیبان با موفقیت بازیابی شد",
+      backupRestoreFailed: "بازیابی پشتیبان ناموفق بود",
+      backupRangeDownloadExcel: "دانلود اکسل",
+      backupRangeDownloadZip: "دانلود ZIP",
+      backupFilteredZipNote:
+        "ZIP شامل اکسل + SQL + media است. فیلتر دوره داده‌ها را کم نمی‌کند — فقط پشتیبان را برچسب می‌زند.",
+      backupCustomDateRequired: "برای بازه دلخواه، هر دو تاریخ شروع و پایان را انتخاب کنید.",
+      backupExcelDesc: "همه جداول در یک فایل اکسل",
+      backupSqlDesc: "فایل SQL کامل برای بازیابی",
+      backupBothDesc: "اکسل + SQL + فایل‌های media (پیشنهادی)",
+      backupRecommended: "بهتر",
+      backupDownloadAction: "دانلود",    },
     userManagement: {
       title: "مدیریت کاربران",
       subtitle: "مدیریت کاربران سیستم و مجوزها",

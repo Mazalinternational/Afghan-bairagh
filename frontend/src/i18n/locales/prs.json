@@ -55,6 +55,9 @@
     "recordLookup": "جستجوی سوابق",
     "sales": "فروش",
     "quotations": "کوټیشن",
+    "settings": "تنظیمات",
+    "backup": "پشتیبان",
+    "userManagement": "مدیریت کاربران",
     "logout": "خروج"
   },
   "printing": {

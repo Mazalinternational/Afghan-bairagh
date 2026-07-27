@@ -52,6 +52,7 @@ const UserManagement = () => {
     { id: 'bank', label: 'Bank', icon: '🏦' },
     { id: 'recordLookup', label: 'Record Lookup', icon: '🔍' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
+    { id: 'backup', label: 'Backup', icon: '💾' },
     { id: 'users', label: 'User Management', icon: '👤' },
   ];
 
