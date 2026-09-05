@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PrinterIcon } from '@heroicons/react/24/outline';
 import { formatDate, formatDateTime } from '../i18n/dateUtils';
+import { getBillDimensions } from '../utils/billPrintSizes';
 
 const PaymentReceipt = ({ payment, onClose }) => {
+  const [pageSize, setPageSize] = useState('A5');
   const formatPaymentMethod = (method) => {
     const key = String(method || '').toLowerCase();
     if (key === 'cash') return 'نقدی';
@@ -16,13 +18,26 @@ const PaymentReceipt = ({ payment, onClose }) => {
     window.print();
   };
 
+  const printDims = pageSize === 'Thermal'
+    ? { pageSize: '80mm auto', width: '80mm' }
+    : getBillDimensions(pageSize);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-2xl w-full" style={{ maxWidth: '320px' }}>
         {/* Header - Hide on print */}
         <div className="bg-blue-600 p-2 rounded-t-lg flex justify-between items-center print:hidden">
           <h2 className="text-sm font-bold text-white">رسید پرداخت</h2>
-          <div className="flex gap-1">
+          <div className="flex gap-1 items-center">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(e.target.value)}
+              className="rounded border border-white/30 bg-white/10 px-1 py-0.5 text-[10px] text-white"
+            >
+              <option value="A4">A4</option>
+              <option value="A5">A5</option>
+              <option value="Thermal">Thermal</option>
+            </select>
             <button
               onClick={handlePrint}
               className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded text-xs flex items-center gap-1"
@@ -127,7 +142,7 @@ const PaymentReceipt = ({ payment, onClose }) => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @media print {
           body * {
             visibility: hidden;
@@ -143,14 +158,14 @@ const PaymentReceipt = ({ payment, onClose }) => {
             position: absolute;
             left: 0;
             top: 0;
-            width: 80mm !important;
-            max-width: 80mm !important;
+            width: ${printDims.width} !important;
+            max-width: ${printDims.width} !important;
             margin: 0;
             padding: 5mm;
             background: white;
           }
           @page {
-            size: 80mm auto;
+            size: ${printDims.pageSize};
             margin: 0;
           }
         }

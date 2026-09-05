@@ -18,10 +18,7 @@ import api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import PrintableBill from '../../components/orders/PrintableBill';
 import PaymentReceipt from '../../components/PaymentReceipt';
-// Import jspdf and autotable to ensure plugin is loaded
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { exportCustomerToPDF } from '../../utils/pdfExport';
+import { exportCustomerLedgerToPdf } from '../../utils/ledgerPdf';
 
 const paymentEntriesInclude = (list, e) =>
   list.some((x) => x.kind === e.kind && x.id === e.id);
@@ -81,6 +78,7 @@ const CustomerLedger = () => {
     payment: null,
     title: ''
   });
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   useEffect(() => {
     fetchCustomerData();
@@ -925,28 +923,34 @@ const CustomerLedger = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={() => {
+              type="button"
+              disabled={pdfExporting}
+              onClick={async () => {
+                setPdfExporting(true);
                 try {
-                  if (typeof jsPDF.prototype.autoTable === 'undefined') {
-                    addToast(t('customers.ledger.pdfPluginError'), 'error');
-                    return;
-                  }
-                  exportCustomerToPDF(customer, orders, payments, {
-                    sales,
-                    directSales,
+                  await exportCustomerLedgerToPdf({
+                    customer,
+                    ledgerRows,
+                    payments,
                     salePayments,
-                    directSalePayments
+                    directSalePayments,
+                    balancePayments,
+                    totals,
+                    formatDate,
                   });
+                  addToast(t('customers.ledger.exportPdf') || 'PDF exported', 'success');
                 } catch (error) {
                   console.error('Error exporting PDF:', error);
-                  addToast(`Failed to export PDF: ${error.message}`, 'error');
+                  addToast(error.message || t('customers.ledger.pdfPluginError'), 'error');
+                } finally {
+                  setPdfExporting(false);
                 }
               }}
-              className="px-3 py-2 bg-green-500/80 hover:bg-green-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold flex items-center gap-1"
+              className="px-3 py-2 bg-green-500/80 hover:bg-green-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold flex items-center gap-1 disabled:opacity-60"
               title={t('customers.ledger.exportPdfTitle')}
             >
               <DocumentArrowDownIcon className="h-3.5 w-3.5" />
-              {t('customers.ledger.exportPdf')}
+              {pdfExporting ? (t('common.loading') || 'Generating...') : t('customers.ledger.exportPdf')}
             </button>
             <button
               onClick={() => setShowPaymentForm(true)}

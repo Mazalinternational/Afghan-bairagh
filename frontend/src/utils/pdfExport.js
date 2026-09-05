@@ -1,12 +1,17 @@
 import jsPDF from 'jspdf';
-// Import autoTable plugin - side effect import that extends jsPDF prototype
-// This must be imported to extend jsPDF.prototype.autoTable
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { formatDate } from '../i18n/dateUtils';
 
-// Verify plugin is loaded
-if (typeof jsPDF.prototype.autoTable === 'undefined') {
-  console.warn('jspdf-autotable plugin may not be loaded correctly');
+function applyAutoTable(doc, options) {
+  if (typeof autoTable === 'function') {
+    autoTable(doc, options);
+    return;
+  }
+  if (typeof doc.autoTable === 'function') {
+    doc.autoTable(options);
+    return;
+  }
+  throw new Error('PDF table plugin not loaded. Please refresh the page.');
 }
 
 const formatMonthYear = (dateInput) => {
@@ -31,12 +36,6 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
     const doc = new jsPDF();
     
     // Verify autoTable is available
-    if (typeof doc.autoTable !== 'function') {
-      console.error('autoTable is not a function on jsPDF instance');
-      console.error('jsPDF prototype:', Object.getOwnPropertyNames(jsPDF.prototype));
-      throw new Error('PDF table plugin not loaded. Please refresh the page.');
-    }
-    
     const pageWidth = doc.internal.pageSize.getWidth();
     let startY = 20;
 
@@ -83,7 +82,7 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
     startY += 5;
 
     // Summary (orders + regular sales + direct sales; paid includes order + sale + direct sale payments)
-    const totalOrdersAmt = orders.reduce((sum, o) => sum + (parseFloat(o.total_amount || o.total) || 0), 0);
+    const totalOrdersAmt = orders.reduce((sum, o) => sum + (parseFloat(o.total_amount || o.total_estimated_amount || o.total) || 0), 0);
     const totalSalesAmt = sales.reduce(
       (sum, s) => sum + (parseFloat(s.net_amount ?? s.total_amount) || 0),
       0
@@ -113,11 +112,11 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
     doc.text('Financial Summary', 14, startY);
     startY += 8;
 
-    doc.autoTable({
+    applyAutoTable(doc, {
       startY: startY,
       head: [['Metric', 'Amount (AFN)']],
       body: [
-        ['Total billed (orders + sales)', totalBilled.toFixed(2)],
+        ['Total billed (orders + sales)', (totalBilled || 0).toFixed(2)],
         ['Total paid (all payment types)', totalPaidAll.toFixed(2)],
         ['Total due', totalDueAll.toFixed(2)]
       ],
@@ -135,14 +134,14 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
       doc.text('Order History', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Order ID', 'Date', 'Items', 'Total', 'Paid', 'Due', 'Status']],
         body: orders.map(order => [
           order.id || 'N/A',
           order.order_date ? formatDate(order.order_date) : 'N/A',
-          order.items || 'N/A',
-          (parseFloat(order.total_amount || order.total) || 0).toFixed(2),
+          order.item_count != null ? `${order.item_count}` : (order.flag_size || order.items || 'N/A'),
+          (parseFloat(order.total_amount || order.total_estimated_amount || order.total) || 0).toFixed(2),
           (parseFloat(order.total_paid || 0) || 0).toFixed(2),
           Math.max(0, (parseFloat(order.due_amount || order.due) || 0)).toFixed(2),
           order.status || 'N/A'
@@ -160,7 +159,7 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
       doc.setTextColor(31, 41, 55);
       doc.text('Sales (invoices)', 14, startY);
       startY += 8;
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Sale', 'Date', 'Items', 'Total', 'Paid', 'Due', 'Status']],
         body: sales.map((s) => [
@@ -184,7 +183,7 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
       doc.setTextColor(31, 41, 55);
       doc.text('Direct sales', 14, startY);
       startY += 8;
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Direct sale', 'Date', 'Items', 'Total', 'Paid', 'Due', 'Status']],
         body: directSales.map((d) => [
@@ -210,7 +209,7 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
       doc.text('Payment History', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Date', 'Amount (AFN)', 'Method', 'Reference']],
         body: payments.map(payment => [
@@ -243,7 +242,7 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
       doc.setTextColor(31, 41, 55);
       doc.text('Sale payments', 14, startY);
       startY += 8;
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Kind', 'Toward', 'Date', 'Amount (AFN)', 'Method']],
         body: allExtraPayments.map((p) => [
@@ -272,10 +271,6 @@ export const exportCustomerToPDF = (customer, orders, payments, extra = {}) => {
 export const exportSupplierToPDF = (supplier, purchases, payments) => {
   try {
     const doc = new jsPDF();
-    
-    if (typeof doc.autoTable !== 'function') {
-      throw new Error('PDF table plugin not loaded. Please refresh the page.');
-    }
     const pageWidth = doc.internal.pageSize.getWidth();
     let startY = 20;
 
@@ -333,7 +328,7 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
     doc.text('Financial Summary', 14, startY);
     startY += 8;
 
-    doc.autoTable({
+    applyAutoTable(doc, {
       startY: startY,
       head: [['Metric', 'Amount (AFN)']],
       body: [
@@ -356,7 +351,7 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
       doc.text('Purchase History', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Bill #', 'Date', 'Item', 'Quantity', 'Cost', 'Paid', 'Due', 'Status']],
         body: purchases.map(purchase => [
@@ -384,7 +379,7 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
       doc.text('Payment History', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Date', 'Amount (AFN)', 'Method', 'Reference']],
         body: payments.map(payment => [
@@ -412,10 +407,6 @@ export const exportSupplierToPDF = (supplier, purchases, payments) => {
 export const exportEmployeeToPDF = (employee, advances, salaryPayments, loans) => {
   try {
     const doc = new jsPDF();
-    
-    if (typeof doc.autoTable !== 'function') {
-      throw new Error('PDF table plugin not loaded. Please refresh the page.');
-    }
     const pageWidth = doc.internal.pageSize.getWidth();
     let startY = 20;
 
@@ -471,7 +462,7 @@ export const exportEmployeeToPDF = (employee, advances, salaryPayments, loans) =
     doc.text('Financial Summary', 14, startY);
     startY += 8;
 
-    doc.autoTable({
+    applyAutoTable(doc, {
       startY: startY,
       head: [['Metric', 'Amount (AFN)']],
       body: [
@@ -497,7 +488,7 @@ export const exportEmployeeToPDF = (employee, advances, salaryPayments, loans) =
       doc.text('Advances', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Date', 'Amount (AFN)', 'Status', 'Deduction Date', 'Return Plan']],
         body: advances.map(advance => [
@@ -522,7 +513,7 @@ export const exportEmployeeToPDF = (employee, advances, salaryPayments, loans) =
       doc.text('Salary Payments', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Month', 'Base Salary', 'Advance Deducted', 'Net Paid', 'Payment Date']],
         body: salaryPayments.map(payment => [
@@ -547,7 +538,7 @@ export const exportEmployeeToPDF = (employee, advances, salaryPayments, loans) =
       doc.text('Loans', 14, startY);
       startY += 8;
 
-      doc.autoTable({
+      applyAutoTable(doc, {
         startY: startY,
         head: [['Date', 'Amount (AFN)', 'Paid', 'Remaining', 'Interest Rate', 'Status']],
         body: loans.map(loan => {

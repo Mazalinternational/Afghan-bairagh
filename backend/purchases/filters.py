@@ -5,6 +5,7 @@ from .models import Purchase, Supplier, Payment
 
 class PurchaseFilter(django_filters.FilterSet):
     """Advanced filtering for purchases"""
+    supplier_id = django_filters.NumberFilter(field_name='supplier_id')
     date_from = django_filters.DateFilter(field_name='purchase_date', lookup_expr='gte')
     date_to = django_filters.DateFilter(field_name='purchase_date', lookup_expr='lte')
     cost_min = django_filters.NumberFilter(field_name='cost', lookup_expr='gte')

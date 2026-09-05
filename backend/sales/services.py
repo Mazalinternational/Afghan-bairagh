@@ -104,7 +104,7 @@ class InventoryService:
             reference_type='PURCHASE',
             reference_id=purchase.id,
             reference_number=f'PURCH-{purchase.id}',
-            notes=f'Purchase #{purchase.id} - {purchase.supplier.name if hasattr(purchase, 'supplier') else "N/A"}'
+            notes=f'Purchase #{purchase.id} - {purchase.supplier.name if hasattr(purchase, "supplier") else "N/A"}'
         )
         
         # Add stock

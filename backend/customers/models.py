@@ -8,8 +8,10 @@ class Customer(models.Model):
     name = models.CharField(max_length=200, db_index=True)
     phone = models.CharField(
         max_length=15,
+        blank=True,
+        default='',
         validators=[RegexValidator(r'^\+?1?\d{9,15}$')],
-        db_index=True
+        db_index=True,
     )
     phone_secondary = models.CharField(
         max_length=15,
@@ -57,7 +59,9 @@ class Customer(models.Model):
         return remaining if remaining > 0 else Decimal('0')
 
     def __str__(self):
-        return f"{self.name} ({self.phone})"
+        if self.phone:
+            return f"{self.name} ({self.phone})"
+        return self.name
 
 
 class CustomerBalancePayment(models.Model):

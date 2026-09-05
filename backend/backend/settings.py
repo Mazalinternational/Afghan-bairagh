@@ -148,6 +148,7 @@ MIDDLEWARE = [
 
 _CSRF_DEV = [
     'http://localhost:3000',
+    'http://localhost:3001',
     'http://localhost:3002',
     'http://localhost:5500',
     'http://127.0.0.1:3000',
@@ -164,7 +165,6 @@ if DEBUG:
 else:
     CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(_CSRF_PROD_DEFAULT + _csrf_extra))
 
-CSRF_EXEMPT_VIEWS = ['expenses']
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
 
@@ -172,6 +172,8 @@ CSRF_COOKIE_HTTPONLY = False
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SAMESITE = 'Lax'
     if _env_bool('DJANGO_SECURE_SSL_REDIRECT', True):
         SECURE_SSL_REDIRECT = True
 
@@ -265,18 +267,22 @@ CACHES = {
 }
 
 # REST Framework Configuration
+# JWT only for the SPA — SessionAuthentication causes CSRF 403 on PATCH/POST/PUT/DELETE
+# when a Django admin session cookie is present in the browser.
+_REST_RENDERERS = [
+    'rest_framework.renderers.JSONRenderer',
+]
+if DEBUG:
+    _REST_RENDERERS.append('rest_framework.renderers.BrowsableAPIRenderer')
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
+    'DEFAULT_RENDERER_CLASSES': _REST_RENDERERS,
 }
 
 # JWT Configuration

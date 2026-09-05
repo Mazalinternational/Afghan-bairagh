@@ -581,9 +581,6 @@ const CreateOrder = () => {
         if (!manualCustomerData.name.trim()) {
           newErrors.customerName = t('orders.errCustomerName');
         }
-        if (!manualCustomerData.phone.trim()) {
-          newErrors.customerPhone = t('orders.errCustomerPhone');
-        }
       }
     } else if (!formData.customer) {
       newErrors.customer = t('orders.errCustomerRequired');

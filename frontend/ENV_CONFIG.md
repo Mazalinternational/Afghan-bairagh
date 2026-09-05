@@ -15,9 +15,8 @@
 ### Required Variables
 
 - **REACT_APP_API_URL**: Backend API base URL (no `/api` suffix)
-  - Development: `http://localhost:8000` (`.env`)
-  - Production: `https://afghanflags.com` (`.env.production`; `api.js` also defaults to this if the var is missing in a production build)
-  - Subdomain API only: `https://api.afghanflags.com`
+  - Development: `http://localhost:8000` (`.env`, proxied via CRA in dev)
+  - Production: `https://afghanflags.com` (`.env.production` — see `DEPLOY-CPANEL-SETUP.md`)
 
 ### Optional Variables
 

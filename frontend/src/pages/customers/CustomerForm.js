@@ -73,10 +73,6 @@ const CustomerForm = () => {
       newErrors.name = t('customers.nameRequired');
     }
     
-    if (!formData.phone.trim()) {
-      newErrors.phone = t('customers.phoneRequired');
-    }
-    
     if (!formData.address.trim()) {
       newErrors.address = t('customers.addressRequired');
     }
@@ -185,7 +181,7 @@ const CustomerForm = () => {
             <div className="max-w-md">
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                 <PhoneIcon className="h-3.5 w-3.5 inline mr-1" />
-                {t('customers.phone')} *
+                {t('customers.phone')}
               </label>
               <input
                 type="tel"

@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, PlusIcon, ChevronLeftIcon, ChevronRightIcon, DocumentArrowDownIcon, PrinterIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-import api from '../../services/api';
+import api, { fetchAllListPages } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import PaymentReceipt from '../../components/PaymentReceipt';
 import { formatDate } from '../../i18n/dateUtils';
 import { useTranslation } from '../../i18n/fallback';
-// Import jspdf and autotable to ensure plugin is loaded
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { exportSupplierToPDF } from '../../utils/pdfExport';
+import { exportSupplierLedgerToPdf } from '../../utils/ledgerPdf';
 
 const SupplierLedger = () => {
   const { id } = useParams();
@@ -62,17 +59,51 @@ const SupplierLedger = () => {
     try {
       const supplierRes = await api.get(`/api/suppliers/${id}/`);
       setSupplier(supplierRes.data);
-      // Use 'supplier' parameter (not 'supplier_id') to match the backend filter field name
-      const purchasesRes = await api.get(`/api/purchases/?supplier=${id}`);
-      const purchasesData = Array.isArray(purchasesRes.data) ? purchasesRes.data : purchasesRes.data.results || [];
-      
-      // Ensure we only get purchases for this specific supplier (safety check)
-      const filteredPurchases = purchasesData.filter(p => {
-        const purchaseSupplierId = typeof p.supplier === 'object' ? p.supplier?.id : p.supplier;
-        return purchaseSupplierId == id; // Use == for loose comparison in case of string/number mismatch
-      });
-      
-      setPurchases(filteredPurchases);
+
+      const supplierId = parseInt(id, 10);
+      const matchesSupplier = (purchase) => {
+        const purchaseSupplierId =
+          typeof purchase.supplier === 'object' ? purchase.supplier?.id : purchase.supplier;
+        return (
+          Number(purchaseSupplierId) === supplierId ||
+          Number(purchase.supplier_id) === supplierId
+        );
+      };
+
+      let purchasesData = [];
+      try {
+        const purchasesRes = await api.get(`/api/suppliers/${id}/purchases/`);
+        purchasesData = Array.isArray(purchasesRes.data)
+          ? purchasesRes.data
+          : purchasesRes.data.results || [];
+      } catch (err) {
+        console.warn('Supplier purchases endpoint failed, using list filter:', err);
+      }
+
+      if (!purchasesData.length) {
+        try {
+          purchasesData = await fetchAllListPages(`/api/purchases/?supplier=${id}`);
+        } catch (err) {
+          console.warn('Supplier purchases filter failed, trying supplier_id:', err);
+        }
+      }
+
+      if (!purchasesData.length) {
+        try {
+          purchasesData = await fetchAllListPages(`/api/purchases/?supplier_id=${id}`);
+        } catch (err) {
+          console.warn('Supplier purchases supplier_id filter failed:', err);
+        }
+      }
+
+      if (!purchasesData.length) {
+        const allPurchases = await fetchAllListPages('/api/purchases/');
+        purchasesData = allPurchases.filter(matchesSupplier);
+      } else {
+        purchasesData = purchasesData.filter(matchesSupplier);
+      }
+
+      setPurchases(purchasesData);
     } catch (err) {
       console.error('Error fetching supplier data:', err);
       addToast(t('suppliers.failedToFetchDetails') || 'Failed to fetch supplier data', 'error');
@@ -92,22 +123,15 @@ const SupplierLedger = () => {
   };
 
   const handleDownloadPDF = async () => {
-    const selectedStatuses = Object.keys(pdfFilters).filter(key => pdfFilters[key]).join(',');
-    if (!selectedStatuses) {
-        addToast(t('common.select') || 'Please select at least one status', 'error');
-      return;
-    }
-
     setPdfLoading(true);
     try {
-      const response = await api.get(`/api/suppliers/${id}/ledger_pdf/?statuses=${selectedStatuses}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Ledger_${supplier.name}_${new Date().toISOString().split('T')[0]}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await exportSupplierLedgerToPdf({
+        supplier,
+        purchases,
+        balancePayments,
+        totals,
+        formatDate,
+      });
       addToast(t('common.savedSuccess') || 'PDF downloaded successfully', 'success');
       setShowPdfFilter(false);
     } catch (err) {
@@ -268,6 +292,39 @@ const SupplierLedger = () => {
   };
 
   const filteredPurchases = purchases.filter(p => !filterStatus || p.payment_status === filterStatus);
+
+  const openingBalanceEntry = supplier && parseFloat(supplier.previous_balance || 0) > 0
+    ? (() => {
+        const total = parseFloat(supplier.previous_balance || 0);
+        const paid = parseFloat(supplier.previous_balance_paid || 0);
+        const remaining = parseFloat(
+          supplier.previous_balance_remaining ?? Math.max(0, total - paid)
+        );
+        let payment_status = 'due';
+        if (remaining <= 0) payment_status = 'paid';
+        else if (paid > 0) payment_status = 'partial';
+        return {
+          id: 'opening-balance',
+          isOpeningBalance: true,
+          bill_number: supplier.previous_balance_reference || t('suppliers.openingBalanceBill'),
+          item_name: t('suppliers.openingBalanceBillDesc'),
+          quantity: '—',
+          cost: total,
+          total_paid: paid,
+          remaining_amount: remaining,
+          payment_status,
+          purchase_date: supplier.created_at || null,
+          payments: [],
+        };
+      })()
+    : null;
+
+  const filteredBillHistory = [
+    ...filteredPurchases,
+    ...(openingBalanceEntry && (!filterStatus || openingBalanceEntry.payment_status === filterStatus)
+      ? [openingBalanceEntry]
+      : []),
+  ];
   
   const openEditPaymentDialog = (payment, type) => {
     const currentAmount = parseFloat(payment.amount || 0);
@@ -363,7 +420,7 @@ const SupplierLedger = () => {
     }
   };
   
-  const sortedFilteredPurchases = [...filteredPurchases].sort(
+  const sortedFilteredPurchases = [...filteredBillHistory].sort(
     (a, b) => new Date(b.purchase_date || 0) - new Date(a.purchase_date || 0)
   );
   const totalPages = Math.max(1, Math.ceil(sortedFilteredPurchases.length / itemsPerPage));
@@ -431,23 +488,53 @@ const SupplierLedger = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             <button 
-              onClick={() => {
+              type="button"
+              disabled={pdfLoading}
+              onClick={async () => {
+                setPdfLoading(true);
                 try {
-                  api.get(`/api/payments/?purchase__supplier=${id}`).then(res => {
-                    const payments = Array.isArray(res.data) ? res.data : res.data.results || [];
-                    exportSupplierToPDF(supplier, purchases, payments);
-                  }).catch(() => {
-                    exportSupplierToPDF(supplier, purchases, []);
+                  let bills = purchases;
+                  try {
+                    const pays = await fetchAllListPages(`/api/payments/?purchase__supplier=${id}`);
+                    if (pays.length) {
+                      bills = purchases.map((p) => {
+                        const nested = Array.isArray(p.payments) ? p.payments : [];
+                        const extra = pays.filter((x) => {
+                          const pid =
+                            x.purchase_id ??
+                            (x.purchase && typeof x.purchase === 'object' ? x.purchase.id : x.purchase);
+                          return Number(pid) === Number(p.id);
+                        });
+                        const merged = [...nested];
+                        extra.forEach((x) => {
+                          if (!merged.some((m) => m.id === x.id)) merged.push(x);
+                        });
+                        return { ...p, payments: merged };
+                      });
+                    }
+                  } catch (payErr) {
+                    console.warn('Could not load extra supplier payments for PDF', payErr);
+                  }
+                  await exportSupplierLedgerToPdf({
+                    supplier,
+                    purchases: bills,
+                    balancePayments,
+                    totals,
+                    formatDate,
                   });
+                  addToast(t('reportsPage.exportPdf') || 'PDF exported', 'success');
                 } catch (error) {
                   console.error('Error exporting PDF:', error);
-                  addToast(`Failed to export PDF: ${error.message}`, 'error');
+                  addToast(error.message || t('common.unknownError') || 'Failed to export PDF', 'error');
+                } finally {
+                  setPdfLoading(false);
                 }
               }} 
-              className="px-3 py-2 bg-green-500/80 hover:bg-green-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold flex items-center gap-1"
+              className="px-3 py-2 bg-green-500/80 hover:bg-green-600/80 text-white rounded-full backdrop-blur-sm shadow-lg hover:shadow-xl border border-white/20 transition-all text-xs font-semibold flex items-center gap-1 disabled:opacity-60"
               title={t('reportsPage.exportToPdf')}
             >
-              <DocumentArrowDownIcon className="h-3.5 w-3.5" />{t('reportsPage.exportPdf')}
+              <DocumentArrowDownIcon className="h-3.5 w-3.5" />
+              {pdfLoading ? (t('common.loading') || 'Generating...') : t('reportsPage.exportPdf')}
             </button>
             <button 
               onClick={() => setShowPaymentForm(true)} 
@@ -587,6 +674,7 @@ const SupplierLedger = () => {
                 </tr>
               ) : (
               paginatedPurchases.map((purchase) => {
+                  const isOpeningBalance = Boolean(purchase.isOpeningBalance);
                   const billNumber = purchase.bill_number || `AF-${String(purchase.id || 0).padStart(2, '0')}`;
                   
                   const totalCost = parseFloat(purchase.cost || 0);
@@ -598,26 +686,34 @@ const SupplierLedger = () => {
                     ? parseFloat(purchase.remaining_amount)
                     : (totalCost - totalPaid);
                   
-                  const hasPayments = purchase.payments && purchase.payments.length > 0;
+                  const hasPayments = !isOpeningBalance && purchase.payments && purchase.payments.length > 0;
                   
                   return (
-                    <React.Fragment key={`purchase-${purchase.id}`}>
-                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <React.Fragment key={isOpeningBalance ? 'opening-balance' : `purchase-${purchase.id}`}>
+                      <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700/50${isOpeningBalance ? ' bg-purple-50/50 dark:bg-purple-900/10' : ''}`}>
                         <td className="px-3 py-2">
-                          <button
-                            onClick={() => navigate(`/purchases/${purchase.id}`)}
-                            className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                            title={t('common.view')}
-                          >
-                            {billNumber}
-                          </button>
-                          <button
-                            onClick={() => navigate(`/purchases/${purchase.id}/edit`)}
-                            className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
-                            title={t('common.edit')}
-                          >
-                            {t('common.edit')}
-                          </button>
+                          {isOpeningBalance ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                              {billNumber}
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => navigate(`/purchases/${purchase.id}`)}
+                                className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                                title={t('common.view')}
+                              >
+                                {billNumber}
+                              </button>
+                              <button
+                                onClick={() => navigate(`/purchases/${purchase.id}/edit`)}
+                                className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                                title={t('common.edit')}
+                              >
+                                {t('common.edit')}
+                              </button>
+                            </>
+                          )}
                         </td>
                         <td className="px-3 py-2">{purchase.item_name || t('common.notAvailable')}</td>
                         <td className="px-3 py-2">{purchase.quantity || t('common.notAvailable')}</td>
@@ -628,9 +724,9 @@ const SupplierLedger = () => {
                         <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${purchase.payment_status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : purchase.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'}`}>{purchase.payment_status === 'paid' ? t('purchases.paid') : purchase.payment_status === 'partial' ? t('purchases.partial') : t('purchases.due')}</span></td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
+                            {!isOpeningBalance && (
                             <button
                               onClick={() => {
-                                // Get payment history for this purchase
                                 const paymentHistory = purchase.payments && purchase.payments.length > 0
                                   ? purchase.payments.map(p => ({
                                       date: p.payment_date,
@@ -663,6 +759,12 @@ const SupplierLedger = () => {
                             >
                               <PrinterIcon className="h-4 w-4" />
                             </button>
+                            )}
+                            {isOpeningBalance && (
+                              <span className="text-[10px] text-purple-600 dark:text-purple-400">
+                                {t('customers.ledger.prevBalancePaymentsSectionHint')}
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

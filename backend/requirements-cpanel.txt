@@ -1,0 +1,10 @@
+# cPanel / CloudLinux Passenger (Python 3.11). Same pins as requirements.txt.
+setuptools>=70,<82
+Django==4.2.7
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+django-filter==24.1
+django-cors-headers==4.3.1
+reportlab==4.0.9
+openpyxl==3.1.2
+python-dotenv==1.0.1

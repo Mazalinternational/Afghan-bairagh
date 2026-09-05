@@ -10,7 +10,7 @@ class Employee(models.Model):
     name = models.CharField(max_length=200, db_index=True)
     father_name = models.CharField(max_length=200)
     nid = models.CharField(max_length=20, unique=True, db_index=True)
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, blank=True, default='')
     address = models.TextField()
     salary = models.DecimalField(max_digits=10, decimal_places=2)
     previous_salary = models.DecimalField(

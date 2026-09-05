@@ -81,6 +81,9 @@ class CustomerSerializer(serializers.ModelSerializer):
         return (value or '').strip()
 
     def validate_phone(self, value):
+        value = (value or '').strip()
+        if not value:
+            return ''
         if Customer.objects.filter(phone=value).exclude(pk=self.instance.pk if self.instance else None).exists():
             raise serializers.ValidationError("Customer with this phone number already exists.")
         return value
@@ -142,6 +145,14 @@ class CustomerCreateSerializer(serializers.ModelSerializer):
         if value is None:
             return ''
         return (value or '').strip()
+
+    def validate_phone(self, value):
+        value = (value or '').strip()
+        if not value:
+            return ''
+        if Customer.objects.filter(phone=value).exists():
+            raise serializers.ValidationError("Customer with this phone number already exists.")
+        return value
 
 
 class CustomerBalancePaymentSerializer(serializers.ModelSerializer):

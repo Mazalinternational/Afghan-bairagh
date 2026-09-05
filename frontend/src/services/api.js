@@ -8,11 +8,14 @@ function isLocalApiUrl(url) {
 function resolveApiBaseUrl() {
   const envUrl = (process.env.REACT_APP_API_URL || '').trim();
 
-  if (process.env.NODE_ENV === 'development' && isLocalApiUrl(envUrl)) {
-    return normalizeApiBaseUrl(envUrl || 'http://localhost:8000');
-  }
-
+  // --- PRODUCTION API (active) ---
   return normalizeApiBaseUrl(envUrl || PRODUCTION_API_ORIGIN);
+
+  // --- LOCAL API (commented — uncomment to test against localhost:8000) ---
+  // if (process.env.NODE_ENV === 'development' && isLocalApiUrl(envUrl || LOCAL_API_ORIGIN)) {
+  //   return '';
+  // }
+  // return normalizeApiBaseUrl(envUrl || LOCAL_API_ORIGIN);
 }
 
 /** Coerce DRF list or paginated payloads into a plain array. */
@@ -23,10 +26,12 @@ export function normalizeListPayload(data) {
 }
 
 /**
- * Deployed API origin for afghanflags.com (no trailing slash, no `/api` suffix).
- * Override with REACT_APP_API_URL at build time (e.g. `https://api.afghanflags.com`).
+ * Production API origin (see frontend/.env.production and DEPLOY-CPANEL-SETUP.md).
  */
 export const PRODUCTION_API_ORIGIN = 'https://afghanflags.com';
+
+/** Local Django when developing with npm start + CRA proxy. */
+export const LOCAL_API_ORIGIN = 'http://localhost:8000';
 
 /**
  * Backend origin only (no trailing slash, no /api suffix).
@@ -47,7 +52,7 @@ if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
   // eslint-disable-next-line no-console
   console.info(
     '[api] API_BASE_URL =',
-    API_BASE_URL || '(unset)',
+    API_BASE_URL || '(CRA proxy → http://localhost:8000)',
     '| REACT_APP_API_URL =',
     process.env.REACT_APP_API_URL ?? '(unset)'
   );

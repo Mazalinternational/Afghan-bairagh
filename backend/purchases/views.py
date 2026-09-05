@@ -52,6 +52,19 @@ class SupplierViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=True, methods=['get'])
+    def purchases(self, request, pk=None):
+        """Purchases for this supplier (used by supplier ledger bill history)."""
+        supplier = self.get_object()
+        purchases = (
+            Purchase.objects.filter(supplier=supplier)
+            .select_related('supplier', 'item')
+            .prefetch_related('payments')
+            .order_by('-purchase_date')
+        )
+        serializer = PurchaseSerializer(purchases, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
     def ledger_pdf(self, request, pk=None):
         """Generate PDF report for supplier ledger with status filters"""
         supplier = self.get_object()

@@ -88,10 +88,6 @@ const EmployeeForm = () => {
       newErrors.nid = t('employees.nidRequired');
     }
     
-    if (!formData.phone.trim()) {
-      newErrors.phone = t('employees.phoneRequired');
-    }
-    
     if (!formData.address.trim()) {
       newErrors.address = t('employees.addressRequired');
     }
@@ -243,7 +239,7 @@ const EmployeeForm = () => {
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <PhoneIcon className="h-3.5 w-3.5 inline mr-1" />
-                {t('common.phone')} *
+                {t('common.phone')}
               </label>
               <input
                 type="tel"
